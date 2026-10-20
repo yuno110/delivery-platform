@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: jpa
+
+  # 프로파일을 지정하지 않으면 local 로 뜬다 → application-local.yml 의 비밀번호를 읽는다.
+  # (IDE 에서 main/테스트를 그냥 실행해도 된다)
+  profiles:
+    default: local
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/jpa?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      # 실습용: 기동할 때마다 테이블을 지우고 엔티티 기준으로 다시 만든다.
+      # 데이터를 남기고 싶으면 update, 스키마를 직접 관리하려면 validate / none
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+        # JPQL 을 SQL 위에 주석으로 찍는다. QueryDSL 이 어떤 JPQL 을 만들었는지 볼 수 있다
+        use_sql_comments: true
+        # N+1 해결책(IN 절로 묶어서 지연 로딩). N+1 을 먼저 눈으로 확인한 뒤 주석을 풀어 비교해 본다
+        # default_batch_fetch_size: 100
+    # OSIV. 기본 true 이고 기동 시 WARN 이 찍힌다.
+    # false 로 바꾸면 트랜잭션 밖(컨트롤러)에서 지연 로딩할 때 LazyInitializationException 이 난다
+    # open-in-view: false
+
+  # @DataJpaTest 는 기본적으로 DataSource 를 내장 DB 로 바꿔치기한다. 내장 DB 없이 MySQL 을 그대로 쓴다
+  test:
+    database:
+      replace: none
+
+logging:
+  level:
+    # 실행되는 SQL (show-sql 은 System.out 이라 로거를 쓴다)
+    org.hibernate.SQL: debug
+    # ? 에 바인딩되는 파라미터 값
+    org.hibernate.orm.jdbc.bind: trace

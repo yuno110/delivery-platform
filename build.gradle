@@ -29,6 +29,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+	// 문자열 유틸. StringUtils.trimToNull / isBlank 등. 버전은 Spring Boot BOM 이 관리한다
+	implementation 'org.apache.commons:commons-lang3'
+
 	// Lombok (annotationProcessor 선언은 QueryDSL보다 먼저)
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

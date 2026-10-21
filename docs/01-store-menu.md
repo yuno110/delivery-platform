@@ -30,7 +30,7 @@ member ──┬── customer ──< customer_address
 
 | 클래스 | 필드 → 컬럼 | 비고 |
 | --- | --- | --- |
-| `Address` | zipcode varchar(10), street varchar(200), detail varchar(100) | Customer 주소와 Store 주소에 재사용 |
+| `Address` | zipCode → zip_code varchar(10) not null, street varchar(200) not null, detail varchar(100) | Customer 주소와 Store 주소에 재사용 |
 | `Money` | amount bigint | 한 엔티티에 Money가 둘이면 `@AttributeOverride(name="amount", column=@Column(name="..."))`로 컬럼명 분리 |
 
 `Money`는 `plus`, `minus`, `multiply`, `isGreaterThan` 정도의 메서드와 `equals/hashCode`를 가진 불변 객체로.
@@ -67,7 +67,7 @@ member ──┬── customer ──< customer_address
 | id | bigint PK | |
 | customer_id | bigint FK, not null | `@ManyToOne(LAZY)` |
 | alias | varchar(30) | 집 / 회사 |
-| zipcode, street, detail | | `Address` 임베디드 |
+| zip_code, street, detail | | `Address` 임베디드 |
 | latitude | decimal(10,7) | 4단계 거리 정렬용 |
 | longitude | decimal(10,7) | |
 | is_default | bit | 고객당 정확히 하나 — DB로 강제 못 함, 도메인 메서드로 보장 |
@@ -115,7 +115,7 @@ IDENTITY라 `em.persist` 직후 id가 있으므로 그때 `path`를 세팅한다
 | name | varchar(100) | not null, index |
 | phone | varchar(20) | |
 | description | varchar(500) | |
-| zipcode, street, detail | | `Address` |
+| zip_code, street, detail | | `Address` |
 | latitude, longitude | decimal(10,7) | |
 | min_order_amount | bigint | `Money` ① |
 | delivery_fee | bigint | `Money` ② — 둘이라서 `@AttributeOverride` 필요 |
@@ -272,6 +272,11 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 - [ ] 같은 카테고리 두 번 연결 → unique 위반
 - [ ] DDL에 `min_order_amount`, `delivery_fee` 두 컬럼 (`@AttributeOverride`)
 - [ ] `StoreBusinessHour.dayOfWeek` 컬럼 타입 확인
+- [ ] Bean Validation과 DDL의 경계 (`Address`에 `@NotBlank`를 남겨 둔 채로 확인한 뒤 제거)
+  - `SHOW CREATE TABLE store` → `@NotBlank`가 `zip_code`에 `not null`을 만들었나? (예상: **아니오**. Hibernate는 `@NotNull`만 DDL에 반영한다)
+  - `@NotBlank`를 `@NotNull`로 바꾸면 DDL이 달라지나? (예상: **예**)
+  - `@Embedded`에 `@Valid` 없이 잘못된 `Address`를 저장하면 `@NotBlank`가 발동하나? (예상: **아니오** — 중첩 객체 검증은 `@Valid`가 필요)
+  - 확인 후: 값 타입에서 `@NotBlank` 제거(생성자 검증과 메시지가 중복된다). Bean Validation은 4단계 요청 DTO에서 쓴다
 - [ ] 수정: 가게 주소(`Address`)만 교체 → UPDATE 문에 **모든 컬럼**이 들어가는 것 확인 (Hibernate 기본). `@DynamicUpdate` 붙여서 바뀐 컬럼만 나가는 것과 비교 → 기본값으로 되돌림
 - [ ] `em.getReference(Owner.class, id)`로 SELECT 없이 `Store.owner` 세팅해서 persist — 프록시로 FK만 채우는 패턴
 - [ ] 삭제: `em.remove(store)` → 자식(hours, categories, holidays, menu_groups…)이 먼저 DELETE 되고 store가 마지막인지. cascade를 빼면 FK 위반

@@ -177,7 +177,7 @@ unique(store_id, holiday_date)
 | name | varchar(50) | 대표메뉴 / 사이드 / 음료 |
 | sort_order | int | |
 
-연관: `@OneToMany(mappedBy = "menuGroup", cascade = ALL, orphanRemoval = true) List<Menu> menus` + `@OrderBy("sortOrder")`
+연관: `@OneToMany(mappedBy = "menuGroup", cascade = ALL) List<Menu> menus` + `@OrderBy("sortOrder")` — **orphanRemoval 없음**: 메뉴는 다른 그룹으로 옮겨 갈 수 있어서 "리스트에서 빠짐 = 삭제"가 아니다. 삭제는 `em.remove(menu)`(→ `@SoftDelete`)로 명시한다
 
 ### `menu` — `@SoftDelete`
 
@@ -249,19 +249,19 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 
 ### Step 1 — common + member (BaseTimeEntity, Address, Money, Member, Customer, CustomerAddress, Owner, Rider)
 
-- [ ] DDL: 테이블 5개. `member.member_type` 존재, 자식 테이블 PK가 `member_id`이고 member.id를 참조
-- [ ] enum 컬럼이 MySQL native `enum('ACTIVE',...)`으로 생겼는지 (`SHOW CREATE TABLE member`)
-- [ ] `em.persist(customer)` → INSERT member, INSERT customer **2개가 persist 시점에** 나간다 (IDENTITY). flush 전에 로그 확인
-- [ ] `em.clear()` 후 `em.find(Member.class, id)` → 자식 테이블 3개를 LEFT OUTER JOIN 하는 SQL. 결과가 `instanceof Customer`
-- [ ] QueryDSL: `selectFrom(member).where(member.instanceOf(Customer.class))` vs `selectFrom(customer)` SQL 비교 (outer join vs inner join)
-- [ ] `customer.addAddress(...)` 두 번 + 기본 주소 교체 → 도메인 메서드로 is_default 하나만 유지되는지
-- [ ] Auditing: persist 후 `createdAt` 세팅, 이름 변경 + flush 후 `updatedAt`만 변경(dirty checking UPDATE SQL 확인)
-- [ ] email 중복 persist → 예외 타입 확인. `em` 직접 호출(`PersistenceException`)과 Repository 경유(`DataIntegrityViolationException`)가 다르다
-- [ ] 실험: `@Inheritance`를 `SINGLE_TABLE`로 바꿔 띄워 보고 DDL(nullable 컬럼 범람)과 조회 SQL 비교 → JOINED로 되돌림
-- [ ] Repository: `memberRepository.save(new Customer(...))` → persist. `em.clear()` 후 준영속 객체를 다시 `save(detached)` → **merge** → SELECT 후 UPDATE 나가는 것 확인
-- [ ] 수정: 트랜잭션 밖에서(또는 clear 후) 바꾼 값은 저장되지 않는다. 다시 조회해서 바꾸거나 merge 해야 하는 것 확인
-- [ ] 삭제: `em.remove(customer)` → DELETE 순서 확인 — customer_address(cascade) → customer → member (JOINED는 자식 테이블 먼저)
-- [ ] 통과하면 `hello` 패키지 삭제
+- [x] DDL: 테이블 5개. `member.member_type` 존재, 자식 테이블 PK가 `member_id`이고 member.id를 참조
+- [x] enum 컬럼이 MySQL native `enum('ACTIVE',...)`으로 생겼는지 (`SHOW CREATE TABLE member`)
+- [x] `em.persist(customer)` → INSERT member, INSERT customer **2개가 persist 시점에** 나간다 (IDENTITY). flush 전에 로그 확인
+- [x] `em.clear()` 후 `em.find(Member.class, id)` → 자식 테이블 3개를 LEFT OUTER JOIN 하는 SQL. 결과가 `instanceof Customer`
+- [x] QueryDSL: `selectFrom(member).where(member.instanceOf(Customer.class))` vs `selectFrom(customer)` SQL 비교 (outer join vs inner join)
+- [x] `customer.addAddress(...)` 두 번 + 기본 주소 교체 → 도메인 메서드로 is_default 하나만 유지되는지
+- [x] Auditing: persist 후 `createdAt` 세팅, 이름 변경 + flush 후 `updatedAt`만 변경(dirty checking UPDATE SQL 확인)
+- [x] email 중복 persist → 예외 타입 확인. `em` 직접 호출(`PersistenceException`)과 Repository 경유(`DataIntegrityViolationException`)가 다르다
+- [x] (패스 — Claude가 대신 실행해 결과만 공유) 실험: `@Inheritance`를 `SINGLE_TABLE`로 바꿔 띄워 보고 DDL(nullable 컬럼 범람)과 조회 SQL 비교 → JOINED로 되돌림
+- [x] Repository: `memberRepository.save(Customer.of(...))` → persist. `em.clear()` 후 준영속 객체를 다시 `save(detached)` → **merge** → SELECT 후 UPDATE 나가는 것 확인
+- [x] 수정: 트랜잭션 밖에서(또는 clear 후) 바꾼 값은 저장되지 않는다. 다시 조회해서 바꾸거나 merge 해야 하는 것 확인
+- [x] 삭제: `em.remove(customer)` → DELETE 순서 확인 — customer_address(cascade) → customer → member (JOINED는 자식 테이블 먼저)
+- [x] (변경) `hello` 패키지는 삭제하지 않고 복습용으로 보존 — HelloTest 의 persist/flush/clear/동일성 주석
 
 ### Step 2 — category, store, store_category, store_business_hour, store_holiday
 
@@ -291,6 +291,7 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 - [ ] `@OrderBy`가 컬렉션 로딩 SQL의 `order by`로 나타나는지
 - [ ] 수정: 메뉴 가격 변경(`Money` 교체) → dirty checking UPDATE. 품절 처리(`soldOut()`) 같은 의도 메서드로만 바꾼다
 - [ ] 메뉴를 다른 그룹으로 이동: 주인(`menu.menuGroup`)만 바꾸면 양쪽 컬렉션이 어긋난다 → 연관관계 편의 메서드로 양쪽 정리. 같은 트랜잭션 안에서 `oldGroup.getMenus()`에 여전히 들어 있는 것 확인
+- [ ] 실험: `menus`에 `orphanRemoval = true`를 잠깐 붙이고 같은 이동을 해 본다 → 옮긴 메뉴가 삭제(`deleted = true`)되는지, 예외가 나는지 관찰. JPA 스펙은 "고아가 된 엔티티를 다른 연관관계에 다시 붙이지 말라"고만 하고 결과를 보장하지 않는다. 확인 후 원복
 - [ ] 메뉴에 연결된 OptionGroup 삭제 시도 → FK 위반(menu_option_group이 참조). 링크 먼저 제거(`menu.optionGroups.remove` + orphanRemoval → DELETE) 후 삭제
 - [ ] `optionGroup.items.remove(item)` → orphanRemoval + `@SoftDelete` 조합 — DELETE가 아니라 UPDATE `deleted = true`로 나가는지 확인
 

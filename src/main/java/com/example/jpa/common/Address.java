@@ -31,18 +31,9 @@ public class Address {
 
     public static Address of(String zipCode, String street, String detail) {
         return new Address(
-                requireText(zipCode, "우편번호는 필수입니다."),
-                requireText(street, "도로명은 필수입니다."),
+                Texts.requireText(zipCode, "우편번호는 필수입니다."),
+                Texts.requireText(street, "도로명은 필수입니다."),
                 StringUtils.trimToNull(detail)
         );
     }
-
-    private static String requireText(String value, String message) {
-        String trimmed = StringUtils.trimToNull(value);
-        if(trimmed == null) {
-            throw new IllegalArgumentException(message);
-        }
-        return trimmed;
-    }
-
 }

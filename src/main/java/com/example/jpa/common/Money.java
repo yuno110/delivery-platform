@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 @Embeddable
-public class Money implements Comparable<Money>{
+public class Money implements Comparable<Money> {
 
     public static final Money ZERO = Money.of(0); // 불변객체라 공유해도 안전하다
 

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @EntityListeners(AuditingEntityListener.class)
-@MappedSuperclass
+@MappedSuperclass // JPA 엔티티가 아니다
 public abstract class BaseTimeEntity {
 
     // @CreatedDate, @LastModifiedDate 는 표시일 뿐이다.

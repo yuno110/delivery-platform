@@ -27,7 +27,7 @@ class HelloTest {
 	@Test
 	void jpaAndQuerydsl() {
 		Hello saved = new Hello("hello");
-		// 엔티티를 영속성 컨텍스트(PC)에 등록 + 쓰기지연큐에 ISNERT 예약, DB에 쿼리 안 보냄(ID전략이 IDENTITY면 예외적으로 즉시 INSERT한다)
+		// 엔티티를 영속성 컨텍스트(PC)에 등록 + 쓰기지연큐에 INSERT 예약, DB에 쿼리 안 보냄(ID전략이 IDENTITY면 예외적으로 즉시 INSERT한다)
 		em.persist(saved);
 
 		// PC에 쌓인 변경(ISNERT, UPDATE, DELETE 쿼리)을 DB로 전송.

@@ -14,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 @Embeddable // 참고 : 임베디드가 전부 null이면 객체가 아니라 null
 public class Address {
 
+    // 임베디드 안에서는 자동 not null 이 없으므로, not null 이 필요한 컬럼은 nullable = false 를 직접 쓴다
     @Column(length = 10, nullable = false)
     private String zipCode;
 

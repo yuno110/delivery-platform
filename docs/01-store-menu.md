@@ -265,22 +265,18 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 
 ### Step 2 — category, store, store_category, store_business_hour, store_holiday
 
-- [ ] 3단 카테고리 트리(음식 > 한식 > 찌개)를 루트에서 cascade로 persist. 각 노드 `path` 세팅. INSERT 뒤 UPDATE(path)가 따라오는 것 확인
-- [ ] `path like '/1/4/%'`로 하위 트리 조회 — JOIN도 재귀도 없음
-- [ ] Store + 영업시간 7개 + 카테고리 2개를 cascade로 persist → INSERT 개수 세기
-- [ ] 영업시간 전체 교체: `businessHours.clear()` + add → DELETE 후 INSERT (orphanRemoval). orphanRemoval을 빼면 `store_id = null` UPDATE를 시도하다 not null에 걸리는 것 확인
-- [ ] 같은 카테고리 두 번 연결 → unique 위반
-- [ ] DDL에 `min_order_amount`, `delivery_fee` 두 컬럼 (`@AttributeOverride`)
-- [ ] `StoreBusinessHour.dayOfWeek` 컬럼 타입 확인
-- [ ] Bean Validation과 DDL의 경계 (`Address`에 `@NotBlank`를 남겨 둔 채로 확인한 뒤 제거)
-  - `SHOW CREATE TABLE store` → `@NotBlank`가 `zip_code`에 `not null`을 만들었나? (예상: **아니오**. Hibernate는 `@NotNull`만 DDL에 반영한다)
-  - `@NotBlank`를 `@NotNull`로 바꾸면 DDL이 달라지나? (예상: **예**)
-  - `@Embedded`에 `@Valid` 없이 잘못된 `Address`를 저장하면 `@NotBlank`가 발동하나? (예상: **아니오** — 중첩 객체 검증은 `@Valid`가 필요)
-  - 확인 후: 값 타입에서 `@NotBlank` 제거(생성자 검증과 메시지가 중복된다). Bean Validation은 4단계 요청 DTO에서 쓴다
-- [ ] 수정: 가게 주소(`Address`)만 교체 → UPDATE 문에 **모든 컬럼**이 들어가는 것 확인 (Hibernate 기본). `@DynamicUpdate` 붙여서 바뀐 컬럼만 나가는 것과 비교 → 기본값으로 되돌림
-- [ ] `em.getReference(Owner.class, id)`로 SELECT 없이 `Store.owner` 세팅해서 persist — 프록시로 FK만 채우는 패턴
-- [ ] 삭제: `em.remove(store)` → 자식(hours, categories, holidays, menu_groups…)이 먼저 DELETE 되고 store가 마지막인지. cascade를 빼면 FK 위반
-- [ ] 카테고리 이동(parent 변경): 하위 트리 전체의 `path`를 벌크 UPDATE(`set path = replace(path, :old, :new) where path like :old%`) → 벌크 연산 후 영속성 컨텍스트의 값이 옛것인 것 확인 → `clearAutomatically` / `em.clear()`
+- [x] 3단 카테고리 트리(음식 > 한식 > 찌개)를 루트에서 cascade로 persist. 각 노드 `path` 세팅. INSERT 뒤 UPDATE(path)가 따라오는 것 확인
+- [x] `path like '/1/4/%'`로 하위 트리 조회 — JOIN도 재귀도 없음
+- [x] Store + 영업시간 7개 + 카테고리 2개를 cascade로 persist → INSERT 개수 세기
+- [x] 영업시간 전체 교체: `businessHours.clear()` + add → **INSERT 먼저, DELETE 나중** (flush 순서 고정: INSERT → UPDATE → DELETE). orphanRemoval을 빼면 에러 없이 옛 행이 남아 쌓인다(7 + 12 = 19). `store_id = null` UPDATE는 mappedBy 없는 단방향 @OneToMany의 동작
+- [x] 같은 카테고리 두 번 연결 → 도메인(`addCategory` id 비교)에서 먼저 막고, 우회하면 DB `uk_store_category`가 막는다 (`Duplicate entry` → `PersistenceException`, root cause `SQLIntegrityConstraintViolationException`)
+- [x] DDL에 `min_order_amount`, `delivery_fee` 두 컬럼 (`@AttributeOverride`)
+- [x] `StoreBusinessHour.dayOfWeek` 컬럼 타입 확인 — `@Enumerated` 없으면 tinyint ORDINAL(0=월), STRING이면 MySQL enum
+- [x] (패스) Bean Validation과 DDL의 경계 — not null 은 `@Column(nullable = false)` 로 통일, 값 검증은 생성자/정적 팩토리, `@NotBlank` 등은 4단계 요청 DTO 에서 사용. (참고: `@NotNull` 은 엔티티 직속 필드만 DDL 에 반영되고 임베디드 안은 안 됨. 임베디드 검증엔 `@Valid` 필요)
+- [x] 수정: 가게 주소(`Address`)만 교체 → UPDATE 문에 **모든 컬럼**이 들어가는 것 확인 (Hibernate 기본). `@DynamicUpdate` 붙여서 바뀐 컬럼만 나가는 것과 비교(임베디드는 통째로 하나의 필드라 주소 컬럼 3개 모두 나감) → 기본값으로 되돌림
+- [x] `em.getReference(Owner.class, id)`로 SELECT 없이 `Store.owner` 세팅해서 persist — 프록시로 FK만 채우는 패턴 (id 외의 값을 읽는 순간 SELECT. 없는 id면 persist 때 FK 위반, 값을 읽을 때 `EntityNotFoundException`)
+- [x] 삭제: `em.remove(store)` → 자식(hours, categories)이 먼저 DELETE 되고 store가 마지막인지. cascade를 빼면 FK 위반 (holidays, menu_groups 는 엔티티를 만든 뒤 같은 방식)
+- [x] 카테고리 이동(parent 변경): 하위 트리 전체의 `path`를 벌크 UPDATE(`set path = replace(path, :old, :new) where path like :old%`) → 벌크 연산 후 영속성 컨텍스트의 값이 옛것인 것 확인 → `clearAutomatically` / `em.clear()`
 
 ### Step 3 — menu_group, menu, option_group, option_item, menu_option_group
 

@@ -14,10 +14,8 @@ import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Import(JpaAuditingConfig.class)
 @DataJpaTest(showSql = false)
@@ -67,7 +65,7 @@ class MemberJpaTest {
         em.flush();
         em.clear();
 
-        System.out.println("===== find(Customer)wjs =====");
+        System.out.println("===== find(Customer) 전 =====");
         Customer found = em.find(Customer.class, customer.getId());// 자식 타입으로 조회
         System.out.println("===== find(Customer) 후 =====");
 
@@ -315,7 +313,8 @@ class MemberJpaTest {
         assertThat(em.find(Customer.class, customer.getId())).isNull();   // 없으면 null
 
         Long addressCount = em.createQuery(
-                        "select count(a) from CustomerAddress a where a.customer.id = :id", Long.class)
+                        "select count(a) from CustomerAddress a where a.customer.id = :id", Long.class
+                )
                 .setParameter("id", customer.getId())
                 .getSingleResult();
         assertThat(addressCount).isZero();          // 주소도 같이 지워졌다

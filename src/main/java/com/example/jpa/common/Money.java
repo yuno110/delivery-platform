@@ -1,6 +1,7 @@
 package com.example.jpa.common;
 
 import com.querydsl.core.annotations.QueryTransient;
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
@@ -15,7 +16,11 @@ public class Money implements Comparable<Money> {
 
     public static final Money ZERO = Money.of(0); // 불변객체라 공유해도 안전하다
 
-    // long은 원시타입이라 null이 들어올 수 없으므로 Hibernate가 이걸 보고 DDL에 자동으로 not null을 붙인다
+    // 기본형 자동 not null 은 "엔티티에 직접 둔 필드"에만 붙는다. 임베디드 안에서는 안 붙는다.
+    //   (엔티티의 Money 필드 자체가 null 일 수 있으니, Hibernate 가 안쪽 컬럼을 nullable 로 만든다)
+    // 그래서 Address.zipCode 처럼 nullable = false 를 직접 쓴다 → amount bigint not null
+    // 주의: 엔티티에서 @AttributeOverride 로 컬럼을 바꾸면 이 @Column 은 통째로 대체된다 (Store 참고)
+    @Column(nullable = false)
     private long amount;
 
     private Money(long amount) {

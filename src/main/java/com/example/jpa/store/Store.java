@@ -5,6 +5,7 @@ import com.example.jpa.common.BaseTimeEntity;
 import com.example.jpa.common.Money;
 import com.example.jpa.common.Texts;
 import com.example.jpa.member.Owner;
+import com.example.jpa.menu.MenuGroup;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -27,11 +28,6 @@ public class Store extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    // 기본 이름은 owner_member_id 가 된다(Owner 의 PK컬럼이 member_id 라서) -> owner_id 로 지정
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "owner_id", nullable = false)
-    private Owner owner;
 
     @Column(length = 100, nullable = false)
     private String name;
@@ -68,18 +64,28 @@ public class Store extends BaseTimeEntity {
     @Column(nullable = false)
     private StoreOperationStatus operationStatus;
 
+    // 기본 이름은 owner_member_id 가 된다(Owner 의 PK컬럼이 member_id 라서) -> owner_id 로 지정
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private Owner owner;
+
     // mappedBy = "store" -> "FK 관리는 StoreBusinessHour의 store 필드가 한다. 이 컬렉션은 그걸 비춰 보는 읽기 전용이다."
     // cascade 는 "내가 당한 일을 상대에게도 전파한다" 라는 뜻이다. 이 전파는 소유자에서 소유물로 흘러야 말이된다
     // orphanRemoval = true 는 "소유자에서 소유물이 없어지면 소유물도 삭제한다" 라는 뜻이다. ManyToOne 쪽에는 그런 목록이 없어서 이 옵션 자체가 없다.
     // 둘 다 가게에 완전히 딸린 것 → Customer.addresses 와 같은 설정
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<StoreCategory> categories = new ArrayList<>();
+    private List<StoreCategory> storeCategories = new ArrayList<>();
 
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StoreBusinessHour> businessHours = new ArrayList<>();
 
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StoreHoliday> holidays = new ArrayList<>();
+
+    // 메뉴 그룹도 가게에 완전히 딸린 것. @OrderBy : 컬렉션을 읽을 때 SQL에 order by sort_order가 붙는다
+    @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder")
+    private List<MenuGroup> menuGroups = new ArrayList<>();
 
     private Store(
             Owner owner, String name, Address address,
@@ -127,20 +133,20 @@ public class Store extends BaseTimeEntity {
         // == 대신 id 비교: 같은 영속성 컨텍스트 안이면 == 도 동작한다(동일성 보장).
         // 하지만 다른 트랜잭션에서 가져온(준영속) 카테고리가 넘어오면 같은 행이어도 다른 객체라 == 가 false 다.
         // id 는 어디서 온 객체든 같다. getId() 는 LAZY 프록시에서도 SELECT 없이 바로 나온다.
-        boolean alreadyAdded = categories.stream()
+        boolean alreadyAdded = storeCategories.stream()
                 .anyMatch(sc -> sc.getCategory().getId().equals(category.getId()));
         if (alreadyAdded) {
             throw new IllegalArgumentException("이미 연결된 카테고리입니다.");
         }
         // 대표 카테고리는 하나만
         if (primary) {
-            categories.forEach(StoreCategory::unmarkPrimary);
+            storeCategories.forEach(StoreCategory::unmarkPrimary);
         }
-        categories.add(new StoreCategory(this, category, primary));
+        storeCategories.add(new StoreCategory(this, category, primary));
     }
 
-    public List<StoreCategory> getCategories() {
-        return Collections.unmodifiableList(categories);
+    public List<StoreCategory> getStoreCategories() {
+        return Collections.unmodifiableList(storeCategories);
     }
 
     /**
@@ -186,7 +192,14 @@ public class Store extends BaseTimeEntity {
         return Collections.unmodifiableList(holidays);
     }
 
-
+    /**
+     * 메뉴 그룹
+     */
+    public MenuGroup addMenuGroup(String name, int sortOrder) {
+        MenuGroup menuGroup = MenuGroup.of(this, name, sortOrder);
+        menuGroups.add(menuGroup);
+        return menuGroup; // 돌려받아서 바로 메뉴를 추가할 수 있게
+    }
 
     public void changeAddress(Address address) {
         if(address == null) {
@@ -194,6 +207,44 @@ public class Store extends BaseTimeEntity {
         }
         this.address = address;
     }
+
+    /**
+     * 운영 상태. 가게는 지우지 않는다 -> 주문 이력이 계속 가리켜야 하므로 폐업도 상태값으로 남긴다
+     */
+    // 점주 임시 중지. 영업 중일 때만 가능
+    public void pause() {
+        if (operationStatus != StoreOperationStatus.OPERATING) {
+            throw new IllegalStateException("영업 중인 가게만 일시 중지할 수 있습니다: " + operationStatus);
+        }
+        this.operationStatus = StoreOperationStatus.PAUSED;
+    }
+
+    // 임시 중지 해제
+    public void resume() {
+        if(operationStatus != StoreOperationStatus.PAUSED) {
+            throw new IllegalStateException("일시 중지된 가게만 영업을 재개할 수 있습니다: " + operationStatus);
+        }
+        this.operationStatus = StoreOperationStatus.OPERATING;
+    }
+
+    // 폐업. em.remove 대신 이것을 쓴다. 자식(메뉴, 휴무일)은 그대로 남고, 되돌릴 수 없다
+    public void close() {
+        if (operationStatus == StoreOperationStatus.CLOSED) {
+            throw new IllegalStateException("이미 폐업한 가게입니다.");
+        }
+        this.operationStatus = StoreOperationStatus.CLOSED;
+    }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

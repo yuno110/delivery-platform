@@ -93,7 +93,7 @@ public class StoreJpaTest {
 
         Store found = em.find(Store.class, store.getId());
         assertThat(found.getBusinessHours()).hasSize(7);
-        assertThat(found.getCategories()).hasSize(2);
+        assertThat(found.getStoreCategories()).hasSize(2);
     }
 
     @Test
@@ -382,7 +382,47 @@ public class StoreJpaTest {
         assertThat(em.find(Store.class, found.getId()).getHolidays()).hasSize(2);
     }
 
+    @Test
+    void 폐업은_삭제가_아니라_상태_변경이다() {
+        Store store = 휴무일_2개인_가게();
 
+        System.out.println("===== 폐업 =====");
+        store.close();
+        em.flush();   // DELETE 가 아니라 operation_status 를 바꾸는 UPDATE
+        System.out.println("===== 끝 =====");
+        em.clear();
+
+        // 가게도 자식도 그대로 남는다
+        Store found = em.find(Store.class, store.getId());
+        assertThat(found).isNotNull();
+        assertThat(found.getOperationStatus()).isEqualTo(StoreOperationStatus.CLOSED);
+        assertThat(found.getHolidays()).hasSize(2);
+
+        // 폐업은 되돌릴 수 없다
+        assertThatThrownBy(found::close)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("이미 폐업한 가게입니다.");
+        assertThatThrownBy(found::resume)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("일시 중지된 가게만 영업을 재개할 수 있습니다: CLOSED");
+    }
+
+    @Test
+    void 일시_중지와_재개는_상태_규칙을_지킨다() {
+        Store store = 휴무일_2개인_가게();
+
+        store.pause();
+        assertThatThrownBy(store::pause)   // 이미 중지 → 다시 중지 불가
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("영업 중인 가게만 일시 중지할 수 있습니다: PAUSED");
+
+        store.resume();
+        assertThat(store.getOperationStatus()).isEqualTo(StoreOperationStatus.OPERATING);
+
+        store.pause();
+        store.close();                      // 중지 상태에서도 폐업할 수 있다
+        assertThat(store.getOperationStatus()).isEqualTo(StoreOperationStatus.CLOSED);
+    }
 
 
 

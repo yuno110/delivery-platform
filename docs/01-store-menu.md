@@ -125,7 +125,7 @@ IDENTITY라 `em.persist` 직후 id가 있으므로 그때 `path`를 세팅한다
 "지금 영업중" = `operation_status = OPERATING` AND 오늘 요일의 영업시간 안 AND 오늘이 휴무일 아님. 4단계에서 쿼리로.
 
 연관 (모두 Store가 부모, cascade = ALL, orphanRemoval = true):
-- `List<StoreCategory> categories`
+- `List<StoreCategory> storeCategories`
 - `List<StoreBusinessHour> businessHours`
 - `List<StoreHoliday> holidays`
 - `List<MenuGroup> menuGroups` + `@OrderBy("sortOrder")`
@@ -197,7 +197,7 @@ unique(store_id, holiday_date)
 `org.hibernate.annotations.SoftDelete`. `em.remove(menu)`가 UPDATE로 바뀌고, 모든 조회에서 자동 제외된다.
 Hibernate 7은 `strategy = SoftDeleteType.TIMESTAMP`(삭제 시각 저장)도 있다 — 비교해 볼 것.
 
-연관: `@OneToMany(mappedBy = "menu", cascade = ALL, orphanRemoval = true) List<MenuOptionGroup> optionGroups` + `@OrderBy("sortOrder")`
+연관: `@OneToMany(mappedBy = "menu", cascade = ALL, orphanRemoval = true) List<MenuOptionGroup> menuOptionGroups` + `@OrderBy("sortOrder")`
 
 ### `option_group` — 가게 단위, 여러 메뉴가 공유
 
@@ -211,7 +211,7 @@ Hibernate 7은 `strategy = SoftDeleteType.TIMESTAMP`(삭제 시각 저장)도 �
 
 연관: `@OneToMany(mappedBy = "optionGroup", cascade = ALL, orphanRemoval = true) List<OptionItem> items` + `@OrderBy("sortOrder")`
 
-### `option_item` — `@SoftDelete`
+### `option_item` — 하드 삭제 (Step 3-9 에서 `@SoftDelete` 제거: 주문 이력은 Step 2 스냅샷으로 보존, FK 가 연결된 옵션 그룹 삭제를 막게 한다)
 
 | 컬럼 | 타입 | 비고 |
 | --- | --- | --- |
@@ -236,7 +236,7 @@ Hibernate 7은 `strategy = SoftDeleteType.TIMESTAMP`(삭제 시각 저장)도 �
 
 unique(menu_id, option_group_id)
 
-메뉴 하나의 옵션 전체 = `menu → optionGroups(List) → optionGroup → items(List)`. 3단 경로.
+메뉴 하나의 옵션 전체 = `menu → menuOptionGroups(List) → optionGroup → items(List)`. 3단 경로.
 두 List를 한 쿼리로 페치 조인하면 `MultipleBagFetchException`이 난다 — 4단계에서 재현하고 해결.
 
 ## 구현 순서와 체크포인트
@@ -275,21 +275,21 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 - [x] (패스) Bean Validation과 DDL의 경계 — not null 은 `@Column(nullable = false)` 로 통일, 값 검증은 생성자/정적 팩토리, `@NotBlank` 등은 4단계 요청 DTO 에서 사용. (참고: `@NotNull` 은 엔티티 직속 필드만 DDL 에 반영되고 임베디드 안은 안 됨. 임베디드 검증엔 `@Valid` 필요)
 - [x] 수정: 가게 주소(`Address`)만 교체 → UPDATE 문에 **모든 컬럼**이 들어가는 것 확인 (Hibernate 기본). `@DynamicUpdate` 붙여서 바뀐 컬럼만 나가는 것과 비교(임베디드는 통째로 하나의 필드라 주소 컬럼 3개 모두 나감) → 기본값으로 되돌림
 - [x] `em.getReference(Owner.class, id)`로 SELECT 없이 `Store.owner` 세팅해서 persist — 프록시로 FK만 채우는 패턴 (id 외의 값을 읽는 순간 SELECT. 없는 id면 persist 때 FK 위반, 값을 읽을 때 `EntityNotFoundException`)
-- [x] 삭제: `em.remove(store)` → 자식(hours, categories)이 먼저 DELETE 되고 store가 마지막인지. cascade를 빼면 FK 위반 (holidays, menu_groups 는 엔티티를 만든 뒤 같은 방식)
+- [x] 삭제: `em.remove(store)` → 자식(hours, storeCategories)이 먼저 DELETE 되고 store가 마지막인지. cascade를 빼면 FK 위반 → 결정(Step 3 후): **가게는 물리 삭제하지 않는다.** menu_groups 가 있으면 menu(@SoftDelete) 행이 남아 menu_group DELETE 가 FK 위반, option_group 은 Store 에서 cascade 가 없어 FK 위반. 폐업은 `store.close()` → operation_status = CLOSED (pause/resume 포함). 이 항목의 em.remove 실험은 자식이 하드 삭제 대상뿐인 경우로 한정
 - [x] 카테고리 이동(parent 변경): 하위 트리 전체의 `path`를 벌크 UPDATE(`set path = replace(path, :old, :new) where path like :old%`) → 벌크 연산 후 영속성 컨텍스트의 값이 옛것인 것 확인 → `clearAutomatically` / `em.clear()`
 
 ### Step 3 — menu_group, menu, option_group, option_item, menu_option_group
 
-- [ ] Store → MenuGroup 3개 → Menu 10개, OptionGroup 3개(items 포함), 메뉴마다 옵션그룹 1~2개 연결. 전체 cascade persist INSERT 개수
-- [ ] `@SoftDelete`: `em.remove(menu)` → **UPDATE** `deleted = true`. clear 후 `em.find` → null. `selectFrom(menu)` 결과에서 제외. 네이티브 `select count(*) from menu`로 행은 남아 있음
-- [ ] 소프트 삭제된 메뉴가 `menuGroup.getMenus()` 컬렉션 로딩에서도 빠지는지
-- [ ] `menu.getOptionGroups().get(0).getOptionGroup().getItems()` 지연 로딩 체인 — SQL 3번 나가는 것 확인 (4단계 N+1 소재)
-- [ ] `@OrderBy`가 컬렉션 로딩 SQL의 `order by`로 나타나는지
-- [ ] 수정: 메뉴 가격 변경(`Money` 교체) → dirty checking UPDATE. 품절 처리(`soldOut()`) 같은 의도 메서드로만 바꾼다
-- [ ] 메뉴를 다른 그룹으로 이동: 주인(`menu.menuGroup`)만 바꾸면 양쪽 컬렉션이 어긋난다 → 연관관계 편의 메서드로 양쪽 정리. 같은 트랜잭션 안에서 `oldGroup.getMenus()`에 여전히 들어 있는 것 확인
-- [ ] 실험: `menus`에 `orphanRemoval = true`를 잠깐 붙이고 같은 이동을 해 본다 → 옮긴 메뉴가 삭제(`deleted = true`)되는지, 예외가 나는지 관찰. JPA 스펙은 "고아가 된 엔티티를 다른 연관관계에 다시 붙이지 말라"고만 하고 결과를 보장하지 않는다. 확인 후 원복
-- [ ] 메뉴에 연결된 OptionGroup 삭제 시도 → FK 위반(menu_option_group이 참조). 링크 먼저 제거(`menu.optionGroups.remove` + orphanRemoval → DELETE) 후 삭제
-- [ ] `optionGroup.items.remove(item)` → orphanRemoval + `@SoftDelete` 조합 — DELETE가 아니라 UPDATE `deleted = true`로 나가는지 확인
+- [x] Store → MenuGroup 3개 → Menu 10개, OptionGroup 3개(items 포함), 메뉴마다 옵션그룹 1~2개 연결. 전체 cascade persist INSERT 개수 → **39개** (store 1·menu_group 3·menu 10 / option_group 3·option_item 8 / menu_option_group 14). 부모 → 자식 순: `menu_group → menu` 그룹 단위로 번갈아, `option_group → option_item` 도 그룹 단위, 링크는 맨 마지막
+- [x] `@SoftDelete`: `em.remove(menu)` → **UPDATE** `deleted = true`. clear 후 `em.find` → null. `selectFrom(menu)` 결과에서 제외. 네이티브 `select count(*) from menu`로 행은 남아 있음 → 확인: remove 시 `update menu set deleted=true where id=? and deleted=false`. 앞에 `menu_option_group` SELECT 1번(cascade REMOVE 전파 대상 확인용). 네이티브 count 2, deleted=true
+- [x] 소프트 삭제된 메뉴가 `menuGroup.getMenus()` 컬렉션 로딩에서도 빠지는지 → 확인: 컬렉션 로딩 SQL에도 `and m1_0.deleted=false` + `order by m1_0.sort_order`
+- [x] `menu.getMenuOptionGroups().get(0).getOptionGroup().getItems()` 지연 로딩 체인 — SQL 3번 나가는 것 확인 (4단계 N+1 소재) → 확인: find 후 `menu_option_group` → (getOptionGroup 은 프록시라 SQL 없음) → `option_group`(getItems 호출 시 프록시 초기화) → `option_item`(순회 시) 3번
+- [x] `@OrderBy`가 컬렉션 로딩 SQL의 `order by`로 나타나는지 (`from menu_group ... order by mg1_0.sort_order`, `from menu ... and m1_0.deleted=false order by m1_0.sort_order`)
+- [x] 수정: 메뉴 가격 변경(`Money` 교체) → dirty checking UPDATE. 품절 처리(`soldOut()`) 같은 의도 메서드로만 바꾼다 → 확인: changePrice 시 전체 컬럼 UPDATE(`where id=?`, deleted 조건 없음). 같은 값 Money 로 교체하면 UPDATE 없음(임베디드는 값 비교). soldOut/resumeSale 상태 규칙 예외
+- [x] 메뉴를 다른 그룹으로 이동: 주인(`menu.menuGroup`)만 바꾸면 양쪽 컬렉션이 어긋난다 → 연관관계 편의 메서드로 양쪽 정리. 같은 트랜잭션 안에서 `oldGroup.getMenus()`에 여전히 들어 있는 것 확인 → 확인: 주인만 바꾸면 flush 후에도 main.menus=[김밥,라면], side.menus=[만두] (DB 는 정상). `menu.moveTo()` 가 removeMenu → menuGroup 변경 → attachMenu 로 양쪽 정리. 컬렉션 미로딩 상태면 moveTo 안에서 menu_group·menu SELECT 2번(add 는 SELECT 없음)
+- [x] 실험: `menus`에 `orphanRemoval = true`를 잠깐 붙이고 같은 이동을 해 본다 → 옮긴 메뉴가 삭제(`deleted = true`)되는지, 예외가 나는지 관찰. JPA 스펙은 "고아가 된 엔티티를 다른 연관관계에 다시 붙이지 말라"고만 하고 결과를 보장하지 않는다. 확인 후 원복 → 확인: (A) moveTo 정상이면 이동은 되지만 고아 삭제 예약 → side 쪽 cascade PERSIST 가 취소, 흔적으로 `menu_option_group` SELECT 1번. (B) attachMenu 누락 시 `update menu set deleted=true` 로 삭제됨. (C) em.find 순서를 side → main 으로 바꾸면 정상 moveTo 여도 삭제됨(flush 의 cascade 가 엔티티 로딩 순서대로 돈다). 결론: 옮겨 다니는 자식에는 orphanRemoval 금지. 원복 완료
+- [x] 메뉴에 연결된 OptionGroup 삭제 시도 → FK 위반(menu_option_group이 참조). 링크 먼저 제거(`menu.removeOptionGroup` + orphanRemoval → DELETE) → **flush** → 삭제. (설계 변경: OptionItem 이 `@SoftDelete` 면 남은 항목 행의 FK 때문에 연결이 없어도 삭제 불가, OptionGroup 까지 `@SoftDelete` 로 하면 MenuOptionGroup→OptionGroup LAZY 가 사라져 연결 로딩 때마다 option_group SELECT. → OptionItem 을 하드 삭제로 변경) → 확인: 연결된 채 삭제는 menu_option_group FK 위반. 연결 없으면 delete option_item × n → delete option_group. 끊기 → flush → remove 순서로 성공. flush 를 빼면 연결 행에 option_group_id=null UPDATE 가 DELETE 보다 먼저 나가 NOT NULL 위반
+- [x] `optionGroup.items.remove(item)` → orphanRemoval 로 `delete from option_item` 이 나가는지 확인 (OptionItem 하드 삭제로 변경되어 원래 계획의 "@SoftDelete → UPDATE" 는 2번 메뉴 삭제에서 이미 확인) → 확인: `optionGroup.removeItem(item)` 후 flush 에 `delete from option_item where id=?` 한 줄. em.remove 없이 orphanRemoval 이 삭제
 
 ### Step 4 — 스키마 확정 · 시드 (여기서부터 대량 데이터)
 

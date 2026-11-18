@@ -1,0 +1,11 @@
+# 시드 적재 전용. 실행: ./gradlew bootRun --args='--spring.profiles.active=local,seed'
+spring:
+  main:
+    # 웹 서버를 띄우지 않는다 → SeedRunner 가 끝나면 프로세스도 끝난다
+    web-application-type: none
+
+logging:
+  level:
+    # 수만 건의 SQL·바인딩 로그를 찍으면 그것만으로 몇 배 느려진다
+    org.hibernate.SQL: info
+    org.hibernate.orm.jdbc.bind: info

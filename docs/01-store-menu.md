@@ -294,8 +294,8 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 
 - [x] `SHOW CREATE TABLE` 15개를 훑어 의도와 다른 것 정리 (varchar 길이, nullable, 인덱스, FK 이름) → 확인: 명세와 일치. 정리: FK 16개·UK 5개 이름 지정(`fk_{테이블}_{참조 테이블}`, `uk_{테이블}_{컬럼}`, unique 는 `@Table(uniqueConstraints)` 로 이동). category.path 인덱스는 Step 5 에서 EXPLAIN 으로 전후 비교. business_hour 는 time(0) 유지, 문서 정정(store_owner, option_item deleted 제거)
 - [x] `ddl-auto: validate`로 변경, 기동 확인 → 확인: 앱(jpa)은 validate 로 기동(DDL 0건). 테스트는 jpa_test 로 분리 — src/test/resources/application-test.yml(createDatabaseIfNotExist, ddl-auto: create) + build.gradle test 태스크에서 프로파일 local,test. validate 는 테이블·컬럼 존재와 타입만 본다(길이·nullable·제약은 안 봄)
-- [ ] 시드 적재 (아래 규모)
-- [ ] 적재 후 `@SpringBootTest`에서 count 쿼리로 규모 확인
+- [x] 시드 적재 (아래 규모) → `seed/SeedRunner`(seed 프로파일, JPA + 도메인 메서드, 청크마다 flush·clear, Random(42) 고정). 실행: `./gradlew bootRun --args='--spring.profiles.active=local,seed'` 약 17초. 결과: category 40, member 10,500(고객 10,000·점주 300·라이더 200), customer_address 19,987, store 300, store_category 483, business_hour 2,358, holiday 229, menu_group 1,049, menu 5,649(+삭제 112), option_group 1,197, option_item 4,587, menu_option_group 8,410
+- [x] 적재 후 `@SpringBootTest`에서 count 쿼리로 규모 확인 → (변경) 테스트는 jpa_test 를 쓰므로 jpa 시드를 볼 수 없다. SeedRunner.printCounts() 가 적재 직후 엔티티별 count 를 로그로 남기는 것으로 대신함
 
 | 테이블 | 건수 | 비고 |
 | --- | --- | --- |
@@ -316,7 +316,7 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 
 - 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having)
 - 카테고리 서브트리에 속한 가게 (path like + join)
-- 특정 시각 영업중인 가게 (business_hour 조건 + holiday not exists + 새벽 마감 처리)
+- 특정 시각 영업중인 가게 (business_hour 조건 + holiday not exists + 새벽 마감 처리) — 시드 휴무일은 모두 2026-12 이므로 기준 날짜를 12월 중 하루(예: 2026-12-25)로 잡아야 휴무일 조건이 결과에 영향을 준다
 - 메뉴명 키워드로 가게 찾기 (exists 서브쿼리 vs join distinct 비교)
 - 가게 상세 DTO: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로 조립
 - N+1 재현 → 페치 조인 / `@EntityGraph` / `default_batch_fetch_size` 각각 비교

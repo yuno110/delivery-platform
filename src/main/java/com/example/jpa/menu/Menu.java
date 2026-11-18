@@ -124,6 +124,14 @@ public class Menu { // 김밥 / 라면
         this.saleStatus = MenuSaleStatus.ON_SALE;
     }
 
+    // 메뉴판에서 숨긴다(점주 화면에서만 보임). 판매중·품절 어느 쪽에서든 가능
+    public void hide() {
+        if (saleStatus == MenuSaleStatus.HIDDEN) {
+            throw new IllegalStateException("이미 숨긴 메뉴입니다.");
+        }
+        this.saleStatus = MenuSaleStatus.HIDDEN;
+    }
+
     // 메뉴를 같은 가게의 다른 그룹으로 옮긴다. 주인(FK)과 양쪽 컬렉션을 한 번에 맞춘다
     public void moveTo(MenuGroup newGroup) {
         if (newGroup == null) {

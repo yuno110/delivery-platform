@@ -16,7 +16,7 @@
 | 1 | 회원 · 가게 · 메뉴 | 15 | 상속(JOINED), 자기참조 트리, N:M 중간 엔티티, 중첩 컬렉션, 소프트 삭제, 값 타입, Auditing |
 | 2 | 주문 · 결제 · 쿠폰 · 배달 | ~12 | 스냅샷, 상태기계 + 이력, 1:1, 낙관적/비관적 락, 쿠폰 상속(SINGLE_TABLE), 예약어(`order`) |
 | 3 | 리뷰 · 통계 · 정산 | ~6 | 집계, 복합키(`@EmbeddedId`), 유효기간 데이터, 벌크 연산, 비정규화 vs 계산 |
-| 4 | 검색 · 리포트 | 0 | QueryDSL 동적 쿼리, 페이징 + count 최적화, 서브쿼리, 날짜 함수 템플릿, 계층 DTO 조립 |
+| 4 | 검색 · 리포트 | 0 | QueryDSL 동적 쿼리, 페이징 + count 최적화, 서브쿼리, 날짜 함수 템플릿, 계층 DTO 조립 (1단계에서 넘긴 키워드 검색·영업중 가게 포함) |
 
 ## 공통 규칙
 
@@ -36,7 +36,7 @@
 ## 스키마 · 데이터 운용
 
 1. 엔티티 먼저 작성 → `ddl-auto: create`로 띄워 Hibernate가 만든 DDL을 본다 (`SHOW CREATE TABLE`). 의도와 다르면 매핑을 고친다.
-2. 단계의 DDL이 확정되면 `ddl-auto: validate`로 바꾸고 시드 데이터를 넣는다. 테스트는 `@Transactional` 롤백이므로 데이터가 유지된다.
+2. 단계의 DDL이 확정되면 앱(`jpa` 스키마)은 `ddl-auto: validate`로 바꾸고 시드 데이터를 넣는다. 테스트는 `jpa_test` 스키마(`ddl-auto: create`)로 분리돼 시드와 섞이지 않는다 (`src/test/resources/application-test.yml`, test 태스크 프로파일 `local,test`).
 3. 다음 단계에서 테이블을 추가할 때는 `update`로 한 번 띄워 추가만 받고 다시 `validate`.
    `update`는 컬럼 삭제·타입 변경·제약 변경을 못 한다 — 그때는 ALTER를 직접 친다.
-4. IDENTITY는 `hibernate.jdbc.batch_size`가 있어도 INSERT 배치가 안 된다. 대량 시드는 SQL(MySQL 8 재귀 CTE) 또는 `JdbcTemplate.batchUpdate`(+ `rewriteBatchedStatements=true`)로.
+4. IDENTITY는 `hibernate.jdbc.batch_size`가 있어도 INSERT 배치가 안 된다. 1단계 시드는 그래도 JPA + 도메인 메서드로 넣었다(약 6만 행, 17초 — 규칙이 지켜진 데이터가 속도보다 중요). 더 큰 규모가 필요하면 `JdbcTemplate.batchUpdate`(+ `rewriteBatchedStatements=true`) 또는 SQL.

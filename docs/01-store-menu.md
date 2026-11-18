@@ -312,13 +312,25 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 | option_item | ~5,000 | 그룹당 2~6개 |
 | menu_option_group | ~8,000 | 메뉴당 1~3개 |
 
-### Step 5 — 1단계 쿼리 연습 (시드 후, 상세는 그때)
+### Step 5 — 1단계 쿼리 연습: "어떻게 가져오느냐"
 
-- 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having)
-- 카테고리 서브트리에 속한 가게 (path like + join)
-- 특정 시각 영업중인 가게 (business_hour 조건 + holiday not exists + 새벽 마감 처리) — 시드 휴무일은 모두 2026-12 이므로 기준 날짜를 12월 중 하루(예: 2026-12-25)로 잡아야 휴무일 조건이 결과에 영향을 준다
+범위: 지연 로딩·N+1·페치 조인·컬렉션 페치의 한계. "무엇을 조건으로 찾느냐"(동적 조건, 페이징, 리포트)는 4단계.
+
+진행 방식:
+- 시드가 있는 `jpa` 스키마에서 돌린다. 쿼리 연습 테스트는 `@Tag("seed")` + 별도 Gradle 태스크 `seedTest`(프로파일 `local`, validate, 롤백). 기본 `test` 는 이 태그를 제외
+- SQL 개수는 Hibernate `Statistics`(`getPrepareStatementCount()`)로 숫자를 검증한다 (`seedTest` 에서만 `generate_statistics`)
+- JPQL·Spring Data(`@Query`, `@EntityGraph`)로 개념을 잡고, 같은 쿼리를 QueryDSL 로 한 번씩 옮겨 본다
+- 주제마다 **API로 겪기 → 고치기 → 테스트로 고정**. 1·2·3번은 컨트롤러 → 서비스(`@Transactional(readOnly = true)`) → 리포지토리로 실제 요청을 보내 SQL 로그를 보고, 고친 뒤 `seedTest` 에서 SQL 개수를 검증한다. 4·5·6번은 테스트만
+- 요청은 `http/*.http` 파일(IntelliJ HTTP Client)로 저장소에 남긴다
+- OSIV 는 1번에서 다룬다: 켜진 채(현재 기본값 true) 먼저 겪고, `spring.jpa.open-in-view: false` 로 끈 뒤 `LazyInitializationException` 확인. 2단계부터는 끈 상태로 간다
+
+- [ ] 1. N+1 재현 → 페치 조인 → `@EntityGraph` → `default_batch_fetch_size` 각각 비교
+- [ ] 2. `MultipleBagFetchException` 재현 → Set / 쿼리 분리 / batch size 로 해결
+- [ ] 3. 가게 상세 조립: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로
+- [ ] 4. 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`
+- [ ] 5. 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having, `select new` DTO 프로젝션)
+- [ ] 6. 카테고리 서브트리에 속한 가게 (path like + join) + `category.path` 인덱스 `EXPLAIN` 전후 비교
+
+4단계로 넘긴 것:
 - 메뉴명 키워드로 가게 찾기 (exists 서브쿼리 vs join distinct 비교)
-- 가게 상세 DTO: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로 조립
-- N+1 재현 → 페치 조인 / `@EntityGraph` / `default_batch_fetch_size` 각각 비교
-- `MultipleBagFetchException` 재현 → Set / 쿼리 분리 / batch size로 해결
-- 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`
+- 특정 시각 영업중인 가게 (business_hour 조건 + holiday not exists + 새벽 마감 처리) — 시드 휴무일은 모두 2026-12 이므로 기준 날짜를 12월 중 하루(예: 2026-12-25)로 잡아야 휴무일 조건이 결과에 영향을 준다

@@ -54,7 +54,28 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	// seed 태그는 jpa 시드가 있어야 돌아간다 → 기본 test 에서는 뺀다
+	useJUnitPlatform {
+		excludeTags 'seed'
+	}
 	// local(비밀번호) + test(jpa_test 스키마, ddl-auto: create)
 	systemProperty 'spring.profiles.active', 'local,test'
+}
+
+// Step 5 쿼리 연습: 시드가 있는 jpa 스키마에서 @Tag("seed") 테스트만 실행
+//   ./gradlew seedTest
+tasks.register('seedTest', Test) {
+	description = '시드가 있는 jpa 스키마에서 @Tag("seed") 테스트만 실행한다 (Step 5 쿼리 연습)'
+	group = 'verification'
+	// 직접 만든 Test 태스크는 어떤 클래스를 돌릴지 모르므로 test 와 같은 곳을 알려 준다
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'seed'
+	}
+	// test 프로파일이 없으니 application.yml 기본값 그대로 → jpa 스키마 + validate
+	// seed 가 아니라 seedtest: seed 를 켜면 SeedRunner 가 돌아 "이미 데이터가 있습니다"로 죽는다
+	systemProperty 'spring.profiles.active', 'local,seedtest'
+	// 코드가 그대로면 Gradle 이 UP-TO-DATE 로 건너뛴다. 결과가 DB 상태에 달렸으니 매번 실행
+	outputs.upToDateWhen { false }
 }

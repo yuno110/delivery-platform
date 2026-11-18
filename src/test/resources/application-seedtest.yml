@@ -1,0 +1,11 @@
+# seedTest 전용 (jpa 스키마는 application.yml 기본값 그대로 사용)
+spring:
+  jpa:
+    properties:
+      hibernate:
+        # 켜야 Statistics 가 숫자를 센다. 꺼져 있으면 getPrepareStatementCount() 가 항상 0
+        generate_statistics: true
+logging:
+  level:
+    # 통계를 켜면 세션마다 "Session Metrics" 요약을 INFO 로 찍는다 → 소음이라 끈다
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: warn

@@ -8,13 +8,13 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "store_owner")
+@Table(name = "store_owner", uniqueConstraints = @UniqueConstraint(name = "uk_store_owner_business_number", columnNames = "business_number"))
 @DiscriminatorValue("OWNER")
-@PrimaryKeyJoinColumn(name = "member_id")
+@PrimaryKeyJoinColumn(name = "member_id", foreignKey = @ForeignKey(name = "fk_store_owner_member"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Owner extends Member {
 
-    @Column(length = 12, nullable = false, unique = true)
+    @Column(length = 12, nullable = false)
     private String businessNumber;
 
     // Store 컬렉션을 두지 않는다. 점주의 가게 목록은 쿼리로 가져온다.

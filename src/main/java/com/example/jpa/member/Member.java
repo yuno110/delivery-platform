@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_member_email", columnNames = "email"))
 @Getter
 // 자바 필드가 없으므로 코드에서 읽을 수 없다. Hibernate가 INSERT할 때 알아서 넣고, 조회할 때 이 값을 보고 어떤 자식 객체를 만들지 결정할때 쓴다
 @DiscriminatorColumn(name = "member_type")
@@ -20,7 +21,7 @@ public abstract class Member extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 100, nullable = false, unique = true)
+    @Column(length = 100, nullable = false)
     private String email;
 
     @Column(length = 100, nullable = false)

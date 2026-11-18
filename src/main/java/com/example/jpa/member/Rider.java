@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @DiscriminatorValue("RIDER")
-@PrimaryKeyJoinColumn(name = "member_id")
+@PrimaryKeyJoinColumn(name = "member_id", foreignKey = @ForeignKey(name = "fk_rider_member"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Rider extends Member {
 

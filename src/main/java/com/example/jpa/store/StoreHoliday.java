@@ -19,7 +19,7 @@ public class StoreHoliday {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "store_id", nullable = false)
+    @JoinColumn(name = "store_id", nullable = false, foreignKey = @ForeignKey(name = "fk_store_holiday_store"))
     private Store store;
 
     @Column(nullable = false)

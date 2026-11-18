@@ -55,4 +55,6 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// local(비밀번호) + test(jpa_test 스키마, ddl-auto: create)
+	systemProperty 'spring.profiles.active', 'local,test'
 }

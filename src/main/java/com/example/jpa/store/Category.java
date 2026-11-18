@@ -21,7 +21,7 @@ public class Category {
 
     // 자기 자신을 참조한다. 루트는 부모가 없으니 nullable (optional = false 를 안 붙인다)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
+    @JoinColumn(name = "parent_id", foreignKey = @ForeignKey(name = "fk_category_parent"))
     private Category parent;
 
     // root만 persist 하면 하위 트리가 전부 저장되도록 PERSIST만 건다

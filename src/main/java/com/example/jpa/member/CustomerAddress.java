@@ -23,7 +23,7 @@ public class CustomerAddress extends BaseTimeEntity {
     // 조회할 때 left outer join 대신 inner join을 사용한다(null일 일이 없으니)
     // Hibernate는 이것만 보고도 DDL에 not null을 붙인다. nullable = false와 중복이지만 의도를 분명히 하기 위해 둘다 썼다
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_id", nullable = false)
+    @JoinColumn(name = "customer_id", nullable = false, foreignKey = @ForeignKey(name = "fk_customer_address_customer"))
     private Customer customer;
 
     @Column(length = 30, nullable = false)

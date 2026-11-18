@@ -24,7 +24,7 @@ public class Menu { // 김밥 / 라면
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "menu_group_id", nullable = false)
+    @JoinColumn(name = "menu_group_id", nullable = false, foreignKey = @ForeignKey(name = "fk_menu_menu_group"))
     private MenuGroup menuGroup;
 
     // 연결 (MenuOptionGroup)은 이 메뉴 전용 -> ALL + orphanRemoval. 목록에서 빼면 연결 행이 DELETE 된다

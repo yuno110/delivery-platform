@@ -16,7 +16,7 @@ import java.util.Optional;
 // 이 테이블의 PK컬럼명을 "member_id"로 지정한다
 // 생략하면 이 테이블의 컬럼명도 id가 된다. customer.member_id가 보기에 더 좋아서 사용
 // 자바에서는 customer.getId()로 사용
-@PrimaryKeyJoinColumn(name = "member_id")
+@PrimaryKeyJoinColumn(name = "member_id", foreignKey = @ForeignKey(name = "fk_customer_member"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Customer extends Member {
 

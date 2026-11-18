@@ -1,0 +1,10 @@
+# 테스트 전용 설정. build.gradle 의 test 태스크가 'local,test' 프로파일로 실행한다.
+# 앱(jpa 스키마, validate + 시드)과 분리해서, 테스트는 매번 빈 테이블에서 시작하고 롤백한다
+spring:
+  datasource:
+    # createDatabaseIfNotExist: jpa_test 스키마가 없으면 MySQL 이 첫 접속 때 만든다
+    url: jdbc:mysql://localhost:3306/jpa_test?createDatabaseIfNotExist=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+  jpa:
+    hibernate:
+      # 테스트는 지금처럼 엔티티 기준으로 매번 다시 만든다
+      ddl-auto: create

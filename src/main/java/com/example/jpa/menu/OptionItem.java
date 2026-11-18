@@ -19,7 +19,7 @@ public class OptionItem { // 순한맛 / 치즈 / 사이즈
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name =  "option_group_id", nullable = false)
+    @JoinColumn(name = "option_group_id", nullable = false, foreignKey = @ForeignKey(name = "fk_option_item_option_group"))
     private OptionGroup optionGroup;
 
     @Column(length = 50, nullable = false)

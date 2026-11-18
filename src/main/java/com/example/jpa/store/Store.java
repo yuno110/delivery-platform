@@ -66,7 +66,7 @@ public class Store extends BaseTimeEntity {
 
     // 기본 이름은 owner_member_id 가 된다(Owner 의 PK컬럼이 member_id 라서) -> owner_id 로 지정
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "owner_id", nullable = false)
+    @JoinColumn(name = "owner_id", nullable = false, foreignKey = @ForeignKey(name = "fk_store_store_owner"))
     private Owner owner;
 
     // mappedBy = "store" -> "FK 관리는 StoreBusinessHour의 store 필드가 한다. 이 컬렉션은 그걸 비춰 보는 읽기 전용이다."

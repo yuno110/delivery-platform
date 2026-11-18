@@ -19,7 +19,7 @@ public class StoreBusinessHour {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "store_id", nullable = false)
+    @JoinColumn(name = "store_id", nullable = false, foreignKey = @ForeignKey(name = "fk_store_business_hour_store"))
     private Store store;
 
     // java.time.DayOfWeek 도 enum 이라 우리 enum과 똑같이 STRING으로 저장한다

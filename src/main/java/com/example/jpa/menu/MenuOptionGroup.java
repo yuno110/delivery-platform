@@ -18,12 +18,12 @@ public class MenuOptionGroup {
 
     // 주인. Menu.menuOptionGroups 의 mappedBy 대상
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "menu_id", nullable = false)
+    @JoinColumn(name = "menu_id", nullable = false, foreignKey = @ForeignKey(name = "fk_menu_option_group_menu"))
     private Menu menu;
 
     // 단방향: 옵션 그룹은 자기를 쓰는 메뉴 목록을 모른다. 여러 메뉴가 공유하므로 cascade 없음
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "option_group_id", nullable = false)
+    @JoinColumn(name = "option_group_id", nullable = false, foreignKey = @ForeignKey(name = "fk_menu_option_group_option_group"))
     private OptionGroup optionGroup;
 
     // 메뉴마다 옵션 그룹 노출 순서가 다르다 → 중간 엔티티에 둔다 (@ManyToMany 로는 못 넣는 컬럼)

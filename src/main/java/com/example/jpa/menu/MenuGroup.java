@@ -27,7 +27,7 @@ public class MenuGroup { // 대표메뉴 / 사이드
     private int sortOrder;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "store_id", nullable = false)
+    @JoinColumn(name = "store_id", nullable = false, foreignKey = @ForeignKey(name = "fk_menu_group_store"))
     private Store store;
 
     // orphanRemoval 없음 : 메뉴는 다른 그룹으로 옮길 수 있어서 "목록에서 빠짐 = 삭제" 가 아니다.

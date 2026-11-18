@@ -72,7 +72,7 @@ member ──┬── customer ──< customer_address
 | longitude | decimal(10,7) | |
 | is_default | bit | 고객당 정확히 하나 — DB로 강제 못 함, 도메인 메서드로 보장 |
 
-### `owner`
+### `store_owner` (엔티티 `Owner`, `@Table(name = "store_owner")`)
 
 | 컬럼 | 타입 | 비고 |
 | --- | --- | --- |
@@ -150,8 +150,8 @@ OptionGroup은 Store 소유지만 Store에서 컬렉션으로 들고 있지 않�
 | id | bigint PK | |
 | store_id | bigint FK, not null | |
 | day_of_week | tinyint 또는 enum | `java.time.DayOfWeek`를 그대로 쓰면 Hibernate가 tinyint(1=월)로 매핑한다. `@Enumerated(STRING)`이 먹는지 DDL로 확인하고, 아니면 자체 enum |
-| open_time | time(6) | `LocalTime` |
-| close_time | time(6) | `close < open`이면 다음날 마감(새벽 영업). 영업중 판정에서 처리 |
+| open_time | time(0) | `LocalTime` (분 단위면 충분해서 기본 정밀도 유지) |
+| close_time | time(0) | `close < open`이면 다음날 마감(새벽 영업). 영업중 판정에서 처리 |
 
 같은 요일에 여러 행 허용 (브레이크타임 = 두 구간). 요일에 행이 없으면 정기휴무.
 
@@ -221,7 +221,6 @@ Hibernate 7은 `strategy = SoftDeleteType.TIMESTAMP`(삭제 시각 저장)도 �
 | extra_price | bigint | `Money` |
 | sale_status | enum | ON_SALE / SOLD_OUT |
 | sort_order | int | |
-| deleted | bit | |
 
 테이블명을 `option`으로 하면 MySQL 예약어에 걸린다.
 
@@ -293,8 +292,8 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 
 ### Step 4 — 스키마 확정 · 시드 (여기서부터 대량 데이터)
 
-- [ ] `SHOW CREATE TABLE` 15개를 훑어 의도와 다른 것 정리 (varchar 길이, nullable, 인덱스, FK 이름)
-- [ ] `ddl-auto: validate`로 변경, 기동 확인
+- [x] `SHOW CREATE TABLE` 15개를 훑어 의도와 다른 것 정리 (varchar 길이, nullable, 인덱스, FK 이름) → 확인: 명세와 일치. 정리: FK 16개·UK 5개 이름 지정(`fk_{테이블}_{참조 테이블}`, `uk_{테이블}_{컬럼}`, unique 는 `@Table(uniqueConstraints)` 로 이동). category.path 인덱스는 Step 5 에서 EXPLAIN 으로 전후 비교. business_hour 는 time(0) 유지, 문서 정정(store_owner, option_item deleted 제거)
+- [x] `ddl-auto: validate`로 변경, 기동 확인 → 확인: 앱(jpa)은 validate 로 기동(DDL 0건). 테스트는 jpa_test 로 분리 — src/test/resources/application-test.yml(createDatabaseIfNotExist, ddl-auto: create) + build.gradle test 태스크에서 프로파일 local,test. validate 는 테이블·컬럼 존재와 타입만 본다(길이·nullable·제약은 안 봄)
 - [ ] 시드 적재 (아래 규모)
 - [ ] 적재 후 `@SpringBootTest`에서 count 쿼리로 규모 확인
 

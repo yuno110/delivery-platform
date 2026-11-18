@@ -30,7 +30,7 @@ public class OptionGroup { // 맵기 선택 / 토핑 추가 / 사이즈
     private int maxSelect; // 1 =
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "store_id", nullable = false)
+    @JoinColumn(name = "store_id", nullable = false, foreignKey = @ForeignKey(name = "fk_option_group_store"))
     private Store store;
 
     // 옵션 아이템은 이 옵션 그룹 전용 -> ALL + orphanRemoval. 목록에서 뺴거나 그룹을 지우면 항목 행이 DELETE 된다.

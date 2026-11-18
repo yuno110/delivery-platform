@@ -17,12 +17,12 @@ public class StoreCategory {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "store_id", nullable = false)
+    @JoinColumn(name = "store_id", nullable = false, foreignKey = @ForeignKey(name = "fk_store_category_store"))
     private Store store;
 
     // 단방향 : Category는 자기를 쓰는 가게 목록을 모른다(필요하면 쿼리로)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "category_id", nullable = false)
+    @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_store_category_category"))
     private Category category;
 
     // 기본 이름은 primary인데 MySQL 예약어라 DDL이 깨진다. -> is_primary

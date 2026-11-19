@@ -22,11 +22,11 @@ spring:
         format_sql: true
         # JPQL 을 SQL 위에 주석으로 찍는다. QueryDSL 이 어떤 JPQL 을 만들었는지 볼 수 있다
         use_sql_comments: true
-        # N+1 해결책(IN 절로 묶어서 지연 로딩). N+1 을 먼저 눈으로 확인한 뒤 주석을 풀어 비교해 본다
-        # default_batch_fetch_size: 100
-    # OSIV. 기본 true 이고 기동 시 WARN 이 찍힌다.
-    # false 로 바꾸면 트랜잭션 밖(컨트롤러)에서 지연 로딩할 때 LazyInitializationException 이 난다
-    # open-in-view: false
+        # 지연 로딩할 때 같은 종류의 미로딩 대상을 최대 100개씩 IN으로 묶는다(N + 1 안전망, 전역)
+        default_batch_fetch_size: 100
+    # OSIV 끔: 영속성 컨텍스트는 트랜잭션(서비스)이 끝나면 닫힌다.
+    # 지연 로딩·DTO 변환은 서비스 안에서 끝내야 한다. 기동 시 WARN 도 사라진다
+    open-in-view: false
 
   # @DataJpaTest 는 기본적으로 DataSource 를 내장 DB 로 바꿔치기한다. 내장 DB 없이 MySQL 을 그대로 쓴다
   test:

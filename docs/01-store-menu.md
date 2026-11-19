@@ -324,7 +324,12 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 - 요청은 `http/*.http` 파일(IntelliJ HTTP Client)로 저장소에 남긴다
 - OSIV 는 1번에서 다룬다: 켜진 채(현재 기본값 true) 먼저 겪고, `spring.jpa.open-in-view: false` 로 끈 뒤 `LazyInitializationException` 확인. 2단계부터는 끈 상태로 간다
 
-- [ ] 1. N+1 재현 → 페치 조인 → `@EntityGraph` → `default_batch_fetch_size` 각각 비교
+- [x] 1. N+1 재현 → 페치 조인 → `@EntityGraph` → `default_batch_fetch_size` 각각 비교
+  - 결과(가게 목록 300건: 점주 이름 + 메뉴그룹 이름, `GET /api/stores`): 지연 로딩만 586번(1 + 서로 다른 점주 285 + 메뉴그룹 300 — 같은 점주는 1차 캐시), 페치 조인 1번, `@EntityGraph` 1번(owner 는 optional=false 라 inner join, 컬렉션은 left join), batch size 100 은 7번(1 + 3 + 3). `query/StoreNPlusOneTest` 로 고정
+  - 엔티티를 그대로 반환하면 양방향 순환으로 JSON 깊이 500 초과 → 응답은 이미 커밋돼 200 + 잘린 JSON(서버에만 WARN). 점주 password 도 노출 → 응답은 DTO, 변환은 서비스 안에서
+  - Hibernate 6 는 컬렉션 페치 조인 시 루트 중복을 자동 제거(distinct 불필요, 쓰면 SQL 까지 전달). DB 는 여전히 1,049행을 보낸다
+  - 규칙: `default_batch_fetch_size` 는 전역 안전망으로 켠다. to-one 은 페치 조인, 컬렉션은 batch(페이징·다중 컬렉션 가능). 컬렉션 페치 조인은 페이징 없고 컬렉션 하나일 때만
+  - OSIV 끔(`open-in-view: false`): 트랜잭션 밖(컨트롤러)에서 지연 로딩하면 `LazyInitializationException`. 켜 두면 요청 끝까지 커넥션을 붙잡고 N+1 이 서비스 밖에서 몰래 생긴다
 - [ ] 2. `MultipleBagFetchException` 재현 → Set / 쿼리 분리 / batch size 로 해결
 - [ ] 3. 가게 상세 조립: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로
 - [ ] 4. 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`

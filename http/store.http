@@ -1,6 +1,3 @@
-### 가게 상세 조회
-GET {{host}}/api/stores/{{storeId}}
-Accept: application/json
 
 ### 가게 목록 조회
 GET {{host}}/api/stores
@@ -14,7 +11,14 @@ Accept: application/json
 GET {{host}}/api/stores/entity-graph
 Accept: application/json
 
+### 메뉴판 A. List 2개 페치 조인 (실패)
+GET {{host}}/api/stores/{{storeId}}/menus/two-bags
 
+### 메뉴판 B. 쿼리 나누기
+GET {{host}}/api/stores/{{storeId}}/menus/split
+
+### 메뉴판 C. 지연 로딩 + batch size
+GET {{host}}/api/stores/{{storeId}}/menus
 
 
 

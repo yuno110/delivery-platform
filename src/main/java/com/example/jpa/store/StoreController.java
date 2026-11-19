@@ -1,5 +1,6 @@
 package com.example.jpa.store;
 
+import com.example.jpa.store.dto.StoreMenuResponse;
 import com.example.jpa.store.dto.StoreSummaryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,19 @@ public class StoreController {
         return storeService.findStoresWithEntityGraph();
     }
 
+    @GetMapping("/{storeId}/menus/two-bags")
+    public StoreMenuResponse findMenusWithTwoBags(@PathVariable Long storeId) {
+        return storeService.findMenusWithTwoBags(storeId);
+    }
 
+    @GetMapping("/{storeId}/menus/split")
+    public StoreMenuResponse findMenusWithSplitQuery(@PathVariable Long storeId) {
+        return storeService.findMenusWithSplitQuery(storeId);
+    }
+
+    @GetMapping("/{storeId}/menus")
+    public StoreMenuResponse findMenus(@PathVariable Long storeId) {
+        return storeService.findMenus(storeId);
+    }
 
 }

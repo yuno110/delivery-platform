@@ -330,7 +330,12 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
   - Hibernate 6 는 컬렉션 페치 조인 시 루트 중복을 자동 제거(distinct 불필요, 쓰면 SQL 까지 전달). DB 는 여전히 1,049행을 보낸다
   - 규칙: `default_batch_fetch_size` 는 전역 안전망으로 켠다. to-one 은 페치 조인, 컬렉션은 batch(페이징·다중 컬렉션 가능). 컬렉션 페치 조인은 페이징 없고 컬렉션 하나일 때만
   - OSIV 끔(`open-in-view: false`): 트랜잭션 밖(컨트롤러)에서 지연 로딩하면 `LazyInitializationException`. 켜 두면 요청 끝까지 커넥션을 붙잡고 N+1 이 서비스 밖에서 몰래 생긴다
-- [ ] 2. `MultipleBagFetchException` 재현 → Set / 쿼리 분리 / batch size 로 해결
+- [x] 2. `MultipleBagFetchException` 재현 → Set / 쿼리 분리 / batch size 로 해결
+  - 결과(메뉴판 `GET /api/stores/{id}/menus`, 가게 → 메뉴그룹 → 메뉴): List 둘 동시 페치 조인은 500 + SQL 0번(SQL 변환 단계에서 막힘, Spring 이 `InvalidDataAccessApiUsageException` 으로 감쌈). 쿼리 분리 2번, 지연 로딩 + batch size 3번(가게 / 메뉴그룹 / 메뉴). 두 응답 동일. `query/StoreMenuFetchTest` 로 고정
+  - bag = `@OrderColumn` 없는 List. 중복 허용 + 식별 기준이 없어 조인 행에서 원래 목록을 복원할 수 없다 → Hibernate 가 실행 전에 거부
+  - 쿼리 분리: 두 번째 쿼리(`MenuGroupRepository.findWithMenusByStoreId`)의 반환값은 안 쓴다. 같은 트랜잭션 = 같은 영속성 컨텍스트라 이미 있는 MenuGroup(같은 id = 같은 객체)의 미초기화 `menus` 를 채운다. 트랜잭션 밖이면 안 채워짐
+  - batch size 의 IN 은 항상 `?` 100개: 컨텍스트에 있는 미초기화 컬렉션(그룹 3~4개)만 채우고 나머지는 null(SQL 문 재사용)
+  - Set 해결책은 채택하지 않음: 예외만 사라지고 나란한 컬렉션이면 행이 곱으로 늘어난다(카테시안 곱). 순서(`LinkedHashSet`)·equals/hashCode 부담, 조회 하나 때문에 엔티티 타입을 바꾸게 됨
 - [ ] 3. 가게 상세 조립: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로
 - [ ] 4. 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`
 - [ ] 5. 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having, `select new` DTO 프로젝션)

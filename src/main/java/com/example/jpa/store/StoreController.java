@@ -1,5 +1,6 @@
 package com.example.jpa.store;
 
+import com.example.jpa.store.dto.StoreDetailResponse;
 import com.example.jpa.store.dto.StoreMenuResponse;
 import com.example.jpa.store.dto.StoreSummaryResponse;
 import lombok.RequiredArgsConstructor;
@@ -46,5 +47,16 @@ public class StoreController {
     public StoreMenuResponse findMenus(@PathVariable Long storeId) {
         return storeService.findMenus(storeId);
     }
+
+    @GetMapping("/{storeId}/detail")
+    public StoreDetailResponse findStoreDetail(@PathVariable Long storeId) {
+        return storeService.findStoreDetail(storeId);
+    }
+
+    @GetMapping("/{storeId}/detail/split")
+    public StoreDetailResponse findStoreDetailWithSplitQuery(@PathVariable Long storeId) {
+        return storeService.findStoreDetailWithSplitQuery(storeId);
+    }
+
 
 }

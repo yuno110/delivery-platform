@@ -20,8 +20,11 @@ GET {{host}}/api/stores/{{storeId}}/menus/split
 ### 메뉴판 C. 지연 로딩 + batch size
 GET {{host}}/api/stores/{{storeId}}/menus
 
+### 5-3 A. 가게 상세 - 지연 로딩 + batch size
+GET {{host}}/api/stores/{{storeId}}/detail
 
-
+### 5-3 B. 가게 상세 - 단계별 쿼리 분리
+GET {{host}}/api/stores/{{storeId}}/detail/split
 
 
 

@@ -1,6 +1,9 @@
 package com.example.jpa.store;
 
 import com.example.jpa.menu.MenuGroupRepository;
+import com.example.jpa.menu.MenuRepository;
+import com.example.jpa.menu.OptionGroupRepository;
+import com.example.jpa.store.dto.StoreDetailResponse;
 import com.example.jpa.store.dto.StoreMenuResponse;
 import com.example.jpa.store.dto.StoreSummaryResponse;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +18,10 @@ import java.util.List;
 public class StoreService {
 
     private final StoreRepository storeRepository;
-
     private final MenuGroupRepository menuGroupRepository;
+    private final MenuRepository menuRepository;
+    private final OptionGroupRepository optionGroupRepository;
+
 
     public List<StoreSummaryResponse> findStores() {
         return storeRepository.findAll().stream()
@@ -73,6 +78,26 @@ public class StoreService {
                 .orElseThrow(() -> new IllegalArgumentException("가게가 없습니다: " + storeId));
         return StoreMenuResponse.from(store);
     }
+
+    // 5-3 A. 지연 로딩 + batch size. 리포지토리 코드 없음
+    public StoreDetailResponse findStoreDetail(Long storeId) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new IllegalArgumentException("가게가 없습니다: " + storeId));
+        return StoreDetailResponse.from(store);
+    }
+
+    // 5-3 B. 단계별 쿼리 분리(bag 하나씩). 2~4번은 반환값을 안 쓴다 : 컨텍스트에 있는 엔티티의 컬렉션을 채우는 용도
+    public StoreDetailResponse findStoreDetailWithSplitQuery(Long storeId) {
+        Store store = storeRepository.findWithMenuGroups(storeId) // 1.가게 +메뉴그룹
+                .orElseThrow(() -> new IllegalArgumentException("가게가 없습니다: " + storeId));
+        menuGroupRepository.findWithMenusByStoreId(storeId); // 2.메뉴그룹 + 메뉴
+        menuRepository.findWithOptionGroupsByStoreId(storeId); // 3.메뉴 + 메뉴옵션그룹 + 옵션그룹
+        optionGroupRepository.findWithItemsByStoreId(storeId); // 4.옵션그룹 + 옵션
+        return StoreDetailResponse.from(store); // 추가 SQL 없음
+    }
+
+
+
 
 
 }

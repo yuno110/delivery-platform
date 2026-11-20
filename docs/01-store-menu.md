@@ -320,7 +320,8 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
 - 시드가 있는 `jpa` 스키마에서 돌린다. 쿼리 연습 테스트는 `@Tag("seed")` + 별도 Gradle 태스크 `seedTest`(프로파일 `local`, validate, 롤백). 기본 `test` 는 이 태그를 제외
 - SQL 개수는 Hibernate `Statistics`(`getPrepareStatementCount()`)로 숫자를 검증한다 (`seedTest` 에서만 `generate_statistics`)
 - JPQL·Spring Data(`@Query`, `@EntityGraph`)로 개념을 잡고, 같은 쿼리를 QueryDSL 로 한 번씩 옮겨 본다
-- 주제마다 **API로 겪기 → 고치기 → 테스트로 고정**. 1·2·3번은 컨트롤러 → 서비스(`@Transactional(readOnly = true)`) → 리포지토리로 실제 요청을 보내 SQL 로그를 보고, 고친 뒤 `seedTest` 에서 SQL 개수를 검증한다. 4·5·6번은 테스트만
+- 주제마다 **API로 겪기 → 고치기 → SQL 로그로 확인 → 결과를 이 문서에 기록**. 컨트롤러 → 서비스(`@Transactional(readOnly = true)`) → 리포지토리로 실제 요청을 보낸다
+  - (변경, 3번부터) 테스트 고정은 하지 않는다. 혼자 하는 학습이라 회귀를 지킬 대상이 적고, 이해는 로그를 보고 따져 보는 데서 나온다. 1·2번의 `seedTest`(`StoreNPlusOneTest`, `StoreMenuFetchTest`)는 그대로 둔다
 - 요청은 `http/*.http` 파일(IntelliJ HTTP Client)로 저장소에 남긴다
 - OSIV 는 1번에서 다룬다: 켜진 채(현재 기본값 true) 먼저 겪고, `spring.jpa.open-in-view: false` 로 끈 뒤 `LazyInitializationException` 확인. 2단계부터는 끈 상태로 간다
 
@@ -336,7 +337,14 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
   - 쿼리 분리: 두 번째 쿼리(`MenuGroupRepository.findWithMenusByStoreId`)의 반환값은 안 쓴다. 같은 트랜잭션 = 같은 영속성 컨텍스트라 이미 있는 MenuGroup(같은 id = 같은 객체)의 미초기화 `menus` 를 채운다. 트랜잭션 밖이면 안 채워짐
   - batch size 의 IN 은 항상 `?` 100개: 컨텍스트에 있는 미초기화 컬렉션(그룹 3~4개)만 채우고 나머지는 null(SQL 문 재사용)
   - Set 해결책은 채택하지 않음: 예외만 사라지고 나란한 컬렉션이면 행이 곱으로 늘어난다(카테시안 곱). 순서(`LinkedHashSet`)·equals/hashCode 부담, 조회 하나 때문에 엔티티 타입을 바꾸게 됨
-- [ ] 3. 가게 상세 조립: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로
+- [x] 3. 가게 상세 조립: 가게 → 메뉴그룹 → 메뉴 → 옵션그룹 → 옵션 계층을 쿼리 2~3번으로
+  - 결과(`GET /api/stores/{id}/detail`, 가게 14: 메뉴그룹 4 · 메뉴 19 · 옵션그룹 3): A 지연 로딩 + batch 6번(가게 / 메뉴그룹 / 메뉴 / 메뉴옵션그룹 / 옵션그룹 / 옵션), B 단계별 쿼리 분리 4번(`/detail/split`, bag 하나씩 페치 조인: 가게+메뉴그룹, 메뉴그룹+메뉴, 메뉴+메뉴옵션그룹+옵션그룹, 옵션그룹+옵션). 두 응답 동일. batch 를 끄면 A 31번(1 + 1 + 4 + 19 + 3 + 3)
+  - 지연 로딩 SQL 시점: 컬렉션은 들여다볼 때(`stream()`/`size()`), 프록시(to-one)는 id 외의 값을 읽을 때(`getName()`). 컬렉션으로 들어온 엔티티는 모든 컬럼이 채워져 있어 `getName()` 에 SQL 없음
+  - batch 는 컬렉션과 프록시를 모두 묶는다. 같은 종류의 미초기화 대상이 컨텍스트에 1개면 `= ?`, 2개 이상이면 `in (?×100)`. 가게 단건이라 `menu_group` 은 `store_id = ?`(5-1 목록에선 IN). batch 끔: SQL 수 = 대상 개수, batch 켬: SQL 수 ≈ 계층 수
+  - 같은 옵션그룹을 19개 메뉴가 공유해도 1차 캐시로 객체는 3개 → batch 를 꺼도 option_group·option_item 은 3번씩
+  - B 에서 메뉴 쿼리를 빼도 에러 없이 4번(batch 끔: 22번). 빈 `menuOptionGroups` 만 지연 로딩으로 메워지고, 옵션그룹은 옵션 쿼리가 먼저 올려 둔 진짜 객체가 연결된다(프록시 안 생김)
+  - 실수: 리포지토리 쿼리를 복사한 채 반환 타입만 다르면 기동은 되고 호출 시 결과 타입 불일치로 500
+  - 결론: 단건 상세는 A(batch 에 맡기기)로 충분. B 는 쿼리 수를 꼭 줄여야 할 때. 차이 2번에 비해 리포지토리 메서드 3개 + "반환값을 안 쓰는 줄"의 유지보수 비용
 - [ ] 4. 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`
 - [ ] 5. 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having, `select new` DTO 프로젝션)
 - [ ] 6. 카테고리 서브트리에 속한 가게 (path like + join) + `category.path` 인덱스 `EXPLAIN` 전후 비교

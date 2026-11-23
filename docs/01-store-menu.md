@@ -353,7 +353,14 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
   - `@DiscriminatorColumn` 이 없으면 Hibernate 가 `case when customer.member_id is not null then 1 ... end` 로 구분값을 만들어 `type()` 도 그걸 비교(`= 3`, `in (1, 2)`). 컬럼이 있으면 단순 비교라 읽기 쉽고 인덱스 가능
   - `@RequestParam` enum: `valueOf` 로 변환, 대소문자 구분(`walk` → 400 `MethodArgumentTypeMismatchException`), 앞뒤 공백은 허용
   - 결론: 타입을 알면 자식 엔티티로 직접 조회. `type()`/`treat()` 는 여러 타입을 섞어 볼 때나 부모 타입 연관관계에서
-- [ ] 5. 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having, `select new` DTO 프로젝션)
+- [x] 5. 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having, `select new` DTO 프로젝션)
+  - 결과(가게 300개 메뉴 수): A Java 로 세기(`/menu-counts/java`, findAll + `getMenuGroups().getMenus().size()`)는 SQL 16번(1 + 3 × (메뉴그룹 1 + 메뉴 4)), 엔티티 6,998개(가게 300 + 메뉴그룹 1,049 + 메뉴 5,649), 약 460ms. B `group by`(`/menu-counts`)는 SQL 1번, 엔티티 0개, 약 75ms. 결과 동일
+  - batch size 는 "한 번에 최대 100개": 대상이 많으면 100개씩 나뉜다(가게 100개분 메뉴그룹 ≈ 350개 → menu SQL 4번). N+1 을 N/100 + 1 로 줄일 뿐 없애지 못한다
+  - `having`(`?minMenuCount=30` → 2개 가게, 최대 31개): 실행 순서 FROM → WHERE(행) → GROUP BY → HAVING(묶음) → SELECT → ORDER BY. 집계 값 조건은 having 에만. `@SoftDelete` 의 `deleted = false` 가 where 에 자동으로 붙어 삭제 메뉴 112개는 집계에서 빠진다
+  - C 그룹별 가격 통계(`/{id}/menu-groups/price-stats`): `count` → Long(항상 숫자라 DTO 는 long), `avg` → Double(JPA 표준), `min/max` → 필드 타입의 래퍼 Long(대상 0행이면 NULL). `from MenuGroup left join mg.menus` 로 쓰면 빈 그룹도 나오고 `deleted = false` 는 on 절로 간다(시드엔 빈 그룹 0개)
+  - `select new` 는 패키지 포함 전체 이름, 생성자 인자 순서·타입이 맞아야 하고 틀리면 기동 시 에러(Spring Data 가 @Query 검증)
+  - 엔티티 vs DTO 프로젝션: DTO 는 영속성 컨텍스트에 안 들어가 변경 감지·지연 로딩·같은 id = 같은 객체가 없다. 필요한 컬럼과 계산 값만 가져온다. `readOnly = true` 는 스냅샷·dirty check 만 줄일 뿐 전체 컬럼 조회·객체 생성·연관 SQL 은 그대로
+  - 결론: 쓰기는 엔티티, 집계·무거운 목록은 DTO 프로젝션. 단점: 리포지토리가 응답 DTO 에 묶이고 컬렉션을 못 담는다(계층 DTO 조립은 4단계)
 - [ ] 6. 카테고리 서브트리에 속한 가게 (path like + join) + `category.path` 인덱스 `EXPLAIN` 전후 비교
 
 4단계로 넘긴 것:

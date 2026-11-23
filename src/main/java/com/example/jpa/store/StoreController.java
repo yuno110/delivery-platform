@@ -1,13 +1,8 @@
 package com.example.jpa.store;
 
-import com.example.jpa.store.dto.StoreDetailResponse;
-import com.example.jpa.store.dto.StoreMenuResponse;
-import com.example.jpa.store.dto.StoreSummaryResponse;
+import com.example.jpa.store.dto.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -57,6 +52,24 @@ public class StoreController {
     public StoreDetailResponse findStoreDetailWithSplitQuery(@PathVariable Long storeId) {
         return storeService.findStoreDetailWithSplitQuery(storeId);
     }
+
+    @GetMapping("/menu-counts/java")
+    public List<StoreMenuCountResponse> findMenuCountsInJava() {
+        return storeService.findMenuCountsInJava();
+    }
+
+    // minMenuCount 를 안 주면 0 → 모든 가게
+    @GetMapping("/menu-counts")
+    public List<StoreMenuCountResponse> findMenuCounts(@RequestParam(defaultValue = "0") long minMenuCount) {
+        return storeService.findMenuCounts(minMenuCount);
+    }
+
+    @GetMapping("/{storeId}/menu-groups/price-stats")
+    public List<MenuGroupPriceResponse> findPriceStats(@PathVariable Long storeId) {
+        return storeService.findPriceStats(storeId);
+    }
+
+
 
 
 }

@@ -28,6 +28,18 @@ GET {{host}}/api/stores/{{storeId}}/detail/split
 
 
 
+### 5-5 A. 가게별 메뉴 수 - Java 로 세기
+GET {{host}}/api/stores/menu-counts/java
+
+### 5-5 B. 가게별 메뉴 수 - group by
+GET {{host}}/api/stores/menu-counts
+
+### 5-5 B. having - 메뉴 30개 이상 가게
+GET {{host}}/api/stores/menu-counts?minMenuCount=30
+
+### 5-5 C. 메뉴그룹별 가격 통계
+GET {{host}}/api/stores/{{storeId}}/menu-groups/price-stats
+
 
 
 

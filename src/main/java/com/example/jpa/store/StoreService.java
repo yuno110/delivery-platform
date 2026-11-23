@@ -3,9 +3,7 @@ package com.example.jpa.store;
 import com.example.jpa.menu.MenuGroupRepository;
 import com.example.jpa.menu.MenuRepository;
 import com.example.jpa.menu.OptionGroupRepository;
-import com.example.jpa.store.dto.StoreDetailResponse;
-import com.example.jpa.store.dto.StoreMenuResponse;
-import com.example.jpa.store.dto.StoreSummaryResponse;
+import com.example.jpa.store.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,6 +93,30 @@ public class StoreService {
         optionGroupRepository.findWithItemsByStoreId(storeId); // 4.옵션그룹 + 옵션
         return StoreDetailResponse.from(store); // 추가 SQL 없음
     }
+
+    // 5-5 A. 엔티티를 전부 가져와서 Java로 센다(비교용 나쁜 예)
+    public List<StoreMenuCountResponse> findMenuCountsInJava() {
+        return storeRepository.findAll()
+                .stream()
+                .map(
+                        store -> new StoreMenuCountResponse(
+                                store.getId(), store.getName(),
+                                store.getMenuGroups().stream().mapToLong(mg -> mg.getMenus().size()).sum()
+                        )
+                )
+                .toList();
+    }
+
+    // 5-5 B. DB 가 세서 숫자만 보낸다
+    public List<StoreMenuCountResponse> findMenuCounts(long minMenuCount) {
+        return storeRepository.findMenuCounts(minMenuCount);
+    }
+
+    // 5-5 C. 메뉴그룹별 가격 통계
+    public List<MenuGroupPriceResponse> findPriceStats(Long storeId) {
+        return menuGroupRepository.findPriceStatsByStoreId(storeId);
+    }
+
 
 
 

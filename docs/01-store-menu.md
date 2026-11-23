@@ -345,7 +345,14 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
   - B 에서 메뉴 쿼리를 빼도 에러 없이 4번(batch 끔: 22번). 빈 `menuOptionGroups` 만 지연 로딩으로 메워지고, 옵션그룹은 옵션 쿼리가 먼저 올려 둔 진짜 객체가 연결된다(프록시 안 생김)
   - 실수: 리포지토리 쿼리를 복사한 채 반환 타입만 다르면 기동은 되고 호출 시 결과 타입 불일치로 500
   - 결론: 단건 상세는 A(batch 에 맡기기)로 충분. B 는 쿼리 수를 꼭 줄여야 할 때. 차이 2번에 비해 리포지토리 메서드 3개 + "반환값을 안 쓰는 줄"의 유지보수 비용
-- [ ] 4. 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`
+- [x] 4. 다형 조회: `Member` 조회 결과 타입별 분기, `treat()` / `instanceOf`
+  - 결과(`GET /api/members/{id}`, 시드 id: 고객 15~10014 · 점주 10015~10314 · 라이더 10315~10514): `findById` → member + 자식 3개 left join, `member_type` 으로 클래스 결정 → `MemberResponse.from` 의 switch 패턴 매칭(sealed 응답 record 3개, Member 는 sealed 가 아니라 default 필수)
+  - 프록시 함정(`/{id}/reference`): `getReferenceById` 는 SQL 없이 `Member$HibernateProxy` 를 만든다(타입을 모르니 부모를 상속). Customer 의 형제라 `case Customer` 에 안 걸려 default → 500, SQL 0번. 초기화 후에도 클래스는 그대로. 같은 컨텍스트에 프록시가 먼저 있으면 이후 `findById` 도 그 프록시를 돌려준다(같은 id = 같은 객체). 해결: `Hibernate.unproxy(m, Member.class)`(`/reference/unproxy`) / 페치 조인 / 연관관계를 자식 타입으로 선언(기본) / 오버라이드 메서드는 프록시여도 정상 동작
+  - `getReferenceById` 실무 용도: 검증 없이 FK 만 채울 때(주문 생성 시 customer, store). 없는 id 는 INSERT 때 FK 위반이라 존재·상태 확인이 필요하면 `findById`
+  - 타입 조건(도보 라이더 52명 / 라이더 200명): `treat(m as Rider).vehicleType`(C-1) 은 골격(member + left join 3개) 그대로 `where rider.vehicle_type = ?` — 다른 타입은 그 칸이 null 이라 빠진다. `type(m) = Rider`(C-2) 는 `member_type = 'RIDER'`, 여러 타입은 `in (...)`. `RiderRepository.findByVehicleType`(C-3) 은 `rider join member` 2개뿐(모든 rider 행엔 member 짝이 있어 inner, member 출발이면 짝 없는 행이 많아 left)
+  - `@DiscriminatorColumn` 이 없으면 Hibernate 가 `case when customer.member_id is not null then 1 ... end` 로 구분값을 만들어 `type()` 도 그걸 비교(`= 3`, `in (1, 2)`). 컬럼이 있으면 단순 비교라 읽기 쉽고 인덱스 가능
+  - `@RequestParam` enum: `valueOf` 로 변환, 대소문자 구분(`walk` → 400 `MethodArgumentTypeMismatchException`), 앞뒤 공백은 허용
+  - 결론: 타입을 알면 자식 엔티티로 직접 조회. `type()`/`treat()` 는 여러 타입을 섞어 볼 때나 부모 타입 연관관계에서
 - [ ] 5. 가게별 메뉴 수 / 그룹별 평균 가격 (group by, having, `select new` DTO 프로젝션)
 - [ ] 6. 카테고리 서브트리에 속한 가게 (path like + join) + `category.path` 인덱스 `EXPLAIN` 전후 비교
 

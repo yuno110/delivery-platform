@@ -1,0 +1,44 @@
+### A. 회원 단건 - 고객                                                                                                                             
+GET {{host}}/api/members/{{customerId}}
+
+### A. 회원 단건 - 점주
+GET {{host}}/api/members/{{ownerId}}
+
+### A. 회원 단건 - 라이더
+GET {{host}}/api/members/{{riderId}}
+
+### B. 프록시 함정 - 고객
+GET {{host}}/api/members/{{customerId}}/reference
+
+### B 해결. Hibernate.unproxy
+GET {{host}}/api/members/{{customerId}}/reference/unproxy
+
+### C-1. treat - 도보 라이더
+GET {{host}}/api/members/riders/treat?vehicleType=WALK
+
+### C-2. type - 라이더 전체
+GET {{host}}/api/members/riders/type
+
+### C-3. 자식 엔티티 직접 - 도보 라이더
+GET {{host}}/api/members/riders?vehicleType=WALK
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

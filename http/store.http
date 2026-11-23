@@ -42,9 +42,23 @@ GET {{host}}/api/stores/{{storeId}}/menu-groups/price-stats
 
 
 
+### 5-6 A. 한식(31) 하위 트리의 가게 - 조인
+GET {{host}}/api/stores/by-category/31/join
 
+> {%
+    // 응답 배열의 길이 = DB에서 돌아온 행 수
+    client.log("행 수: " + response.body.length);
+    // 서로 다른 가게 id 개수
+    client.log("가게 수: " + new Set(response.body.map(s => s.id)).size);
+%}
 
+### 5-6 B. 한식(31) 하위 트리의 가게 - exists
+GET {{host}}/api/stores/by-category/31
 
+> {%
+      client.log("행 수: " + response.body.length);
+      client.log("가게 수: " + new Set(response.body.map(s => s.id)).size);
+%}
 
 
 

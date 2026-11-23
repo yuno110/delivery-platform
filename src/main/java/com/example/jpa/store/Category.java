@@ -12,6 +12,7 @@ import java.util.List;
 
 @Entity
 @Getter
+@Table(indexes = @Index(name = "idx_category_path", columnList = "path"))   // 하위 트리 조회 path like '/31/%'
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Category {
 

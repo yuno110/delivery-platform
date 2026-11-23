@@ -69,7 +69,15 @@ public class StoreController {
         return storeService.findPriceStats(storeId);
     }
 
+    @GetMapping("/by-category/{categoryId}/join")
+    public List<StoreSimpleResponse> findStoresInCategoryWithJoin(@PathVariable Long categoryId) {
+        return storeService.findStoresInCategoryWithJoin(categoryId);
+    }
 
+    @GetMapping("/by-category/{categoryId}")
+    public List<StoreSimpleResponse> findStoresInCategory(@PathVariable Long categoryId) {
+        return storeService.findStoresInCategory(categoryId);
+    }
 
 
 }

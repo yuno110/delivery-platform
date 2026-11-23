@@ -361,7 +361,15 @@ CRUD 체크포인트는 `EntityManager` 직접 호출과 Spring Data `Repository
   - `select new` 는 패키지 포함 전체 이름, 생성자 인자 순서·타입이 맞아야 하고 틀리면 기동 시 에러(Spring Data 가 @Query 검증)
   - 엔티티 vs DTO 프로젝션: DTO 는 영속성 컨텍스트에 안 들어가 변경 감지·지연 로딩·같은 id = 같은 객체가 없다. 필요한 컬럼과 계산 값만 가져온다. `readOnly = true` 는 스냅샷·dirty check 만 줄일 뿐 전체 컬럼 조회·객체 생성·연관 SQL 은 그대로
   - 결론: 쓰기는 엔티티, 집계·무거운 목록은 DTO 프로젝션. 단점: 리포지토리가 응답 DTO 에 묶이고 컬렉션을 못 담는다(계층 DTO 조립은 4단계)
-- [ ] 6. 카테고리 서브트리에 속한 가게 (path like + join) + `category.path` 인덱스 `EXPLAIN` 전후 비교
+- [x] 6. 카테고리 서브트리에 속한 가게 (path like + join) + `category.path` 인덱스 `EXPLAIN` 전후 비교
+  - 결과(한식 31 = `/31/`, 하위 카테고리 11개 · 전체 40개): A 조인(`/by-category/31/join`, `from StoreCategory`)은 133행 / 가게 118개 → 같은 트리의 카테고리 여러 개에 걸린 가게가 연결 수만큼 반복. B `exists`(`/by-category/31`, `from Store`)는 118행. `.http` 응답 핸들러(`> {% client.log(...) %}`, `>` 는 줄 맨 앞)로 행 수 / 고유 id 수를 셌다
+  - 중복 원인: `from` 이 연결 테이블이면 결과 한 행 = 조건을 통과한 연결 한 건. `select new` DTO 는 행마다 값을 담을 뿐 합치지 않는다. 해결은 `distinct`(다 만든 뒤 제거) 또는 `exists`(가게 기준으로 "하나라도 있나?") — "~에 속한 X" 는 exists 가 의도를 그대로 드러낸다
+  - `where sc.store = s` → `sc.store_id = s.id`: 바깥 가게와 서브쿼리를 잇는 상관 서브쿼리. 빠지면 모든 가게가 나온다
+  - 묵시적 조인: `sc.category.path` 처럼 FK 너머의 id 아닌 값을 경로로 읽으면 Hibernate 가 inner join 을 숨겨 넣는다(`sc.category.id` 는 FK 컬럼이라 조인 없음). 명시적 `join sc.category c` 로 써도 SQL 은 같고 읽기 쉽다
+  - EXPLAIN(`table = c` 줄): 인덱스 없음 `ALL` · key NULL · rows 40 · Using where(풀 스캔). `idx_category_path` 후 `range` · rows 11 · Using where; Using index(정렬된 B-tree 에서 `/31/` 구간만, path + PK(id) 만 필요해 커버링). `select *` 면 Using index condition(테이블 재방문). 앞에도 `%`(`'%/31/%'`)면 `index` · rows 40 — 인덱스 전체 스캔이라 효과 없음(key 이름만 보고 안심 금지, type·rows 를 같이 본다)
+  - 조인 순서 c → sc(`ref`, FK 인덱스) → s(`eq_ref`, PK): 뒤쪽은 원래 인덱스를 타고, 출발점 c 의 읽기 방식이 차이를 만든다
+  - 인덱스는 DB 콘솔에서 직접 생성 + `Category` 에 `@Table(indexes = @Index(...))` 기록. `validate` 는 인덱스를 만들지도 검사하지도 않음(`jpa_test` 의 `create` 에서만 생성)
+  - 결론: materialized path 는 하위 트리 조회가 앞부분 고정 like 라 인덱스 range 로 끝나는 설계. 데이터 40행에선 체감 차이가 없으니 실행 시간보다 EXPLAIN 의 type / rows 로 판단
 
 4단계로 넘긴 것:
 - 메뉴명 키워드로 가게 찾기 (exists 서브쿼리 vs join distinct 비교)

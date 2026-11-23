@@ -19,6 +19,7 @@ public class StoreService {
     private final MenuGroupRepository menuGroupRepository;
     private final MenuRepository menuRepository;
     private final OptionGroupRepository optionGroupRepository;
+    private final CategoryRepository categoryRepository;
 
 
     public List<StoreSummaryResponse> findStores() {
@@ -117,7 +118,22 @@ public class StoreService {
         return menuGroupRepository.findPriceStatsByStoreId(storeId);
     }
 
+    // 5-6 A
+    public List<StoreSimpleResponse> findStoresInCategoryWithJoin(Long categoryId) {
+        return storeRepository.findByCategoryPathWithJoin(findCategoryPath(categoryId));
+    }
 
+    // 5-6 B
+    public List<StoreSimpleResponse> findStoresInCategory(Long categoryId) {
+        return storeRepository.findByCategoryPath(findCategoryPath(categoryId));
+    }
+
+    // 카테고리 id → path ("/31/"). 하위 트리는 이 문자열로 시작한다
+    private String findCategoryPath(Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new IllegalArgumentException("카테고리가 없습니다: " + categoryId))
+                .getPath();
+    }
 
 
 

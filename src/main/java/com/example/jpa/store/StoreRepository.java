@@ -1,6 +1,7 @@
 package com.example.jpa.store;
 
 import com.example.jpa.store.dto.StoreMenuCountResponse;
+import com.example.jpa.store.dto.StoreSimpleResponse;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -64,5 +65,40 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
             """
     )
     List<StoreMenuCountResponse> findMenuCounts(@Param("minMenuCount") long minMenuCount);
+
+    // 5-6 A. 조인: 가게 하나가 같은 트리의 카테고리 2개(예: 한식 > 찌개, 한식 > 국밥) 에 걸려 있으면 그 가게 행이 2번 나온다
+    @Query(
+            """
+            select new com.example.jpa.store.dto.StoreSimpleResponse(s.id, s.name)
+            from StoreCategory sc
+            join sc.store s
+            join sc.category c
+            where c.path like concat(:path, '%')
+            order by s.id
+            """
+    )
+    List<StoreSimpleResponse> findByCategoryPathWithJoin(@Param("path") String path);
+
+    // 5-6 B. exists: "이 가게에 조건에 맞는 연결이 하나라도 있나?" -> 가게 기준이라 가게당 한 번만
+    @Query(
+            """
+            select new com.example.jpa.store.dto.StoreSimpleResponse(s.id, s.name)
+            from Store s
+            where exists (
+                select 1
+                from StoreCategory sc
+                join sc.category c
+                where sc.store = s
+                and c.path like concat(:path, '%')
+            )
+            order by s.id
+            """
+    )
+    List<StoreSimpleResponse> findByCategoryPath(@Param("path") String path);
+
+
+
+
+
 
 }
